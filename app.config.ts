@@ -9,6 +9,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     ...config,
     name: config.name ?? 'Re-Wired FM',
     slug: config.slug ?? 'rewired-fm',
+    web: { ...config.web, favicon: './assets/artwork/eclipse.png' },
     ...(baseUrl ? { experiments: { ...config.experiments, baseUrl } } : {}),
   };
 };

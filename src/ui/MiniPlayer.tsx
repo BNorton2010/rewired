@@ -2,22 +2,23 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useAudio } from '../audio/AudioProvider';
-import { colors } from './theme';
+import { colors, fonts } from './theme';
 import { CosmicArt } from './CosmicArt';
-import { PlaybackVisualizer } from './PlaybackVisualizer';
-import { IconButton } from './components';
+import { PlayMedallion } from './PlayerControls';
 export function MiniPlayer() {
   const audio = useAudio();
   if (!audio.lesson) return null;
-  return <View style={{ borderTopWidth: 1, borderColor: colors.line, backgroundColor: '#101B2E', paddingHorizontal: 16, paddingVertical: 11 }}>
-    <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center', maxWidth: 1120, width: '100%', alignSelf: 'center' }}>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Open player for ${audio.lesson.title}`} onPress={() => router.push('/player')} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <CosmicArt kind={audio.lesson.artwork} style={{ height: 46, width: 46, borderRadius: 9 }} />
-        <View style={{ flex: 1, gap: 4 }}><Text numberOfLines={1} style={{ color: colors.ink, fontWeight: '700', fontSize: 14 }}>{audio.lesson.title}</Text><Text style={{ color: colors.muted, fontSize: 11 }}>{audio.error ? 'Playback error · open player' : audio.loading ? 'Loading sample…' : audio.finished ? 'Practice complete' : `${audio.playing ? 'Playing' : 'Paused'} · ${audio.lesson.minutes} min · Demo sample`}</Text></View>
+  return <View style={{ borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.line, backgroundColor: '#100B16', paddingHorizontal: 18, paddingVertical: 10 }}>
+    <View style={{ flexDirection: 'row', gap: 14, alignItems: 'center', maxWidth: 1080, width: '100%', alignSelf: 'center' }}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Open player for ${audio.lesson.title}`} onPress={() => router.push('/player')} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 }}>
+        <CosmicArt kind={audio.lesson.artwork} style={{ height: 50, width: 48, borderRadius: 8 }} />
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text numberOfLines={1} style={{ color: colors.ink, fontFamily: fonts.display, fontSize: 22, lineHeight: 26 }}>{audio.lesson.title}</Text>
+          <Text numberOfLines={1} style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 10 }}>{audio.error ? 'Playback error · open player' : audio.loading ? 'Loading sample…' : audio.finished ? 'Practice complete' : `${audio.playing ? 'Playing' : 'Paused'} · Ambient sample`}</Text>
+          <View style={{ height: 2, borderRadius: 2, backgroundColor: colors.line, marginTop: 3 }}><View style={{ height: 2, borderRadius: 2, width: `${Math.min(100, audio.duration ? audio.position / audio.duration * 100 : 0)}%`, backgroundColor: colors.gold }} /></View>
+        </View>
       </Pressable>
-      <PlaybackVisualizer compact playing={audio.playing && !audio.loading} />
-      <IconButton name={audio.playing || audio.starting ? 'pause' : 'play'} label={audio.playing || audio.starting ? 'Pause audio' : 'Play audio'} color={colors.gold} onPress={audio.toggle} />
+      <PlayMedallion compact playing={audio.playing || audio.starting} loading={audio.loading} label={audio.playing || audio.starting ? 'Pause audio' : 'Play audio'} onPress={() => audio.error ? audio.retry() : audio.toggle()} />
     </View>
-    <View style={{ height: 2, backgroundColor: colors.line, marginTop: 8 }}><View style={{ height: 2, width: `${Math.min(100, audio.duration ? audio.position / audio.duration * 100 : 0)}%`, backgroundColor: colors.gold }} /></View>
   </View>;
 }

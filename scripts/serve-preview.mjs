@@ -25,6 +25,10 @@ const server = http.createServer((request, response) => {
   if (file !== root && !file.startsWith(`${root}${path.sep}`)) { response.writeHead(403); response.end(); return; }
   let stat;
   try { stat = fs.statSync(file); } catch { /* Router paths use the single-page entry below. */ }
+  if (stat?.isDirectory()) {
+    file = path.join(file, 'index.html');
+    try { stat = fs.statSync(file); } catch { stat = undefined; }
+  }
   if (!stat?.isFile()) {
     if (path.extname(pathname)) { response.writeHead(404); response.end(); return; }
     file = path.join(root, 'index.html'); stat = fs.statSync(file);

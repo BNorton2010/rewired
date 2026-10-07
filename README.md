@@ -75,7 +75,7 @@ npx eas-cli@latest workflow:run .eas/workflows/phone-preview.yml --ref HEAD --no
 
 `--ref HEAD` asks Expo to fetch that exact GitHub commit rather than uploading this cloud workspace. Check the workflow's success and published update in [the Expo project](https://expo.dev/accounts/paid-to-bring-peace/projects/beau). Keep using the stable launch link and QR after verifying that the channel selects the new iOS update and all its assets are downloadable. A QR must point to the native Expo Go preview; the GitHub Pages link opens the browser app. On an iPhone alone, use a tappable preview link or Expo's Preview button, since the Camera app cannot scan a QR displayed on the same screen. Physical iPhone compatibility and audio still require a device check.
 
-The workflow confirms that the stable channel resolves to the pinned update, downloads the published manifest and all 46 files, checks their SHA-256 hashes, confirms the SDK and presence of three audio samples, and validates the Hermes bundle. Expo provides temporary per-asset authorization in the manifest's multipart `extensions` part; the verifier forwards those headers only to Expo's CDN and never prints or stores them. Plain downloads without these headers can return 403 even for a valid update. To check an existing update without publishing another one:
+The workflow confirms that the stable channel resolves to the pinned update, downloads the published manifest and every native file, checks their SHA-256 hashes, confirms the SDK and presence of three audio samples, and validates the Hermes bundle. Expo provides temporary per-asset authorization in the manifest's multipart `extensions` part; the verifier forwards those headers only to Expo's CDN and never prints or stores them. Plain downloads without these headers can return 403 even for a valid update. To check an existing update without publishing another one:
 
 ```sh
 npx eas-cli@latest workflow:run .eas/workflows/check-phone-preview.yml --ref HEAD \
@@ -146,19 +146,21 @@ Device checklist: listen with the screen locked and app backgrounded; try lock-s
 - A 14-day journey with local progress. Listening to the end marks the lesson practiced and completes the next matching path day; a circle lets you self-report another practiced day. There are no psychological scores, locked days, promised outcomes, or streak penalties.
 - A single persistent player across the main screens, with play/pause, actual duration, seeking, ±15-second controls, speed, errors/retry, completion, and saved listening position. Restored sessions begin paused.
 - Native Expo Audio session uses `playsInSilentMode`, `shouldPlayInBackground`, and `doNotMix`. `expo-audio`'s config plugin enables the iOS audio background mode and Android media playback service. Lock-screen controls are registered with title and demo metadata. Native OS interruptions and headset disconnection can pause playback; users choose when to resume.
-- Responsive safe-area layouts, readable off-white text, gold controls, and original static cosmic vector art. A translucent teal-and-purple aurora with soft gold highlights spans the player background without a card or label. Filled gradient ribbons move continuously rightward; repeating seamless tiles avoid reversing direction or visibly snapping at the loop boundary. It drifts slowly and quietly while paused, then increases in height, opacity and pace during playback. The full and mini players stop drawing in the background and stay still with Reduce Motion. It is a visual rhythm, not frequency analysis. Static art and disabled navigation animations respect reduced motion. System fonts retain platform text scaling; native accessibility still requires device testing.
+- The approved black/plum/gold redesign applies to every screen. Bundled Cormorant Garamond headings and DM Sans controls sit beside original celestial cover artwork; open practice rows replace most bordered cards. The player has a satin-gold medallion, matching 15-second controls, a custom gold seek track, and a unified speed/text/save toolbar. Text scales, layouts respect safe areas, and short screens scroll.
+- A full-width transparent aurora sits behind the player: soft filled Bézier ribbons, diffuse glow and a few fine gold/teal wisps flow continuously rightward. It drifts quietly while paused and eases into greater height, opacity and speed while playing. Phase is preserved at playback changes; spare periods supply blur continuity at the loop boundary. Reduce Motion freezes movement, and backgrounding stops animation without stopping audio. It is atmospheric, not a measurement of audio frequencies. [Design notes and approved references](docs/design.md) describe the components, assets and animation.
+
 
 ## Content and licensing
 
 All visible lessons are **illustrative demo content**. The bundled 3-, 5-, and 9-minute files are original **instrumental ambient samples**, not final narrated practices. Reading companions are explicitly labeled as reflective text, not transcripts of a voice recording. There is no audio-generation feature in the app.
 
-The audio files and synthesis recipe are CC0; see [the audio license](assets/audio/LICENSE.md). Artwork is original vector art in this repository. There are no third-party stock recordings. Optional sample rebuilding uses the checked-in Python recipe and ffmpeg; the app does not need those tools to run.
+The audio files and synthesis recipe are CC0; see [the audio license](assets/audio/LICENSE.md). The three celestial illustrations are original AI-generated assets created for the approved design; see [artwork provenance](assets/artwork/README.md). The locally bundled fonts use the SIL Open Font License; licenses are included in [assets/fonts](assets/fonts/README.md). There are no third-party stock recordings. Optional sample rebuilding uses the checked-in Python recipe and ffmpeg; the app does not need those tools to run.
 
 To replace content:
 
 1. Edit lesson titles, topics, descriptions, lengths, intentions, and reading text in `src/content/catalog.ts`.
 2. Replace the static audio mappings in `src/audio/sources.ts`. Each lesson currently shares the sample for its duration; final recordings should be keyed by lesson ID. Audio displays its actual loaded duration, not an invented final-recording duration.
-3. Replace `src/ui/CosmicArt.tsx` or add licensed bundled images. Keep artwork descriptions decorative unless they convey information.
+3. Replace the files in `assets/artwork` or their map in `src/ui/CosmicArt.tsx`. Keep artwork descriptions decorative unless they convey information.
 4. Preserve lesson IDs to retain local favorites and progress. A changing data schema needs an explicit migration; unknown versions are preserved and surfaced as a storage warning.
 
 ## Project structure and future connections
@@ -177,6 +179,12 @@ src/content/                Catalog, recommendation, search, and path logic
 src/persistence/            AsyncStorage, versioned local state, ordered writes
 src/integrations/demo.ts    Explicit future account/entitlement boundary
 src/ui/                     Shared controls, artwork, theme, mini-player
+  PlayerControls.tsx        Satin-gold transport and action toolbar
+  PlaybackVisualizer.tsx    Continuous aurora; motion/background handling
+  SeekBar.tsx               Custom track, web range and native accessible gestures
+assets/artwork/             Original bundled celestial covers
+assets/fonts/               Bundled font faces, provenance and OFL licenses
+docs/design.md              Visual system and approved mockups
 assets/audio/               Bundled CC0 audio samples and provenance
 scripts/                    Cloud launcher, native-config check, audio recipe
 tests/                      Content/state tests and Playwright browser flows
@@ -201,7 +209,9 @@ Playwright uses `/usr/bin/chromium` when available in this cloud machine. On ano
 
 Native config introspection verifies the background mode, media service, and absence of microphone permissions. Actual iOS/Android binaries, hardware interruption behavior, OS background lifetimes, native assistive technologies, and lock-screen controls require the device checklist above. No remote deployment or GitHub upload is performed by these commands.
 
-Current cloud validation: a clean `npm ci` succeeded; TypeScript passed; all **7 content/state tests** and **3 browser tests** passed; web, iOS, and Android JavaScript bundles exported; native audio configuration assertions passed. Chromium inspection covered desktop and a 320-pixel mobile viewport, with no horizontal overflow. The mobile browser test simulated 1.4× text and reduced motion. The web server returned HTTP 200 and was left running for iteration. No physical-device or signed native-binary testing was performed. This session has no tool for opening a user-facing built-in browser panel; the preview was inspected with automated Chromium instead.
+Redesign validation: TypeScript and **15 content/state/native-preparation tests** passed. **All 6 browser tests passed against the production Pages export**, including the synchronized quick-reset/mini-player controls. The browser flows exercise actual playback time, seek/skip/speed controls, completion, persistence, favorites, filters, empty states, rapid pause and error recovery. Additional checks cover bundled fonts and artwork, 1.6× text at 320px, keyboard seeking, full-width placement at 320/390/430/768/1440px, rightward flow through a complete aurora loop, idle motion, playback amplification and Reduce Motion. Production screenshots and approved references are included in [the design notes](docs/design.md). Native audio configuration assertions passed. Web, iOS and Android JavaScript export successfully; an export is not a signed native build. Expo's dependency compatibility check passed after aligning TypeScript and React types with SDK 57. Fonts use the already-supported runtime font loader, so this visual update does not require a new Expo Go native binary.
+
+The web development server remains on port 8081 for iteration. The Pages build is validated separately at its `/rewired` base path. The local static preview helper now serves directory entry files, including the iPhone launch page; a generated celestial favicon avoids broken browser-icon requests. No physical device or signed native-binary testing has been performed. Verify native aurora smoothness, scrub gestures, VoiceOver/Dynamic Type, screen-lock playback, remote controls and interruptions using the device checklist above.
 
 The cloud Expo CLI may report an optional React Native DevTools launch failure because its desktop sandbox helper cannot run here. The Metro server and web preview still run; use browser developer tools for the preview and native developer tools on your local development machine.
 

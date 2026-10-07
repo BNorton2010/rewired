@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Re-Wired FM",
+    "slug": "rewired-fm",
+    "version": "0.1.0",
+    "scheme": "rewired",
+    "extra": {
+      "eas": { "projectId": "f824a207-b43d-4e95-9e57-f38e4a693d80" }
+    },
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.rewiredfm.demo",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.rewiredfm.demo"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "name": "Re-Wired FM"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": true,
+          "enableBackgroundRecording": false,
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      "expo-status-bar",
+      "expo-asset"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+import { execFileSync } from 'node:child_process';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+const output = execFileSync(process.execPath, [path.resolve('node_modules/expo/bin/cli'), 'config', '--type', 'introspect', '--json'], { encoding: 'utf8', env: { ...process.env, EXPO_OFFLINE: '1', __UNSAFE_EXPO_HOME_DIRECTORY: path.resolve('.cache/expo-home') } });
+const config = JSON.parse(output);
+const ios = config._internal.modResults.ios.infoPlist;
+const android = config._internal.modResults.android.manifest.manifest;
+assert.ok(ios.UIBackgroundModes.includes('audio'));
+assert.equal(ios.NSMicrophoneUsageDescription, undefined);
+const permissions = android['uses-permission'].map(item => item.$['android:name']);
+assert.ok(permissions.includes('android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK'));
+assert.ok(!permissions.includes('android.permission.RECORD_AUDIO'));
+assert.ok(android.application.flatMap(app => app.service || []).some(service => service.$['android:name'] === 'expo.modules.audio.service.AudioControlsService'));
+console.log('Native audio configuration passed: iOS background audio, Android media service, and no microphone permissions. This does not replace physical-device testing.');

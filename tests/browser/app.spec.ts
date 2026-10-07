@@ -96,7 +96,7 @@ test('failed audio can be retried and rapid pause does not leave an unhandled pl
   expect(errors).toEqual([]);
 });
 
-test('transparent full-width waveform idles, amplifies for playback and respects reduced motion', async ({ page }) => {
+test('filled aurora flows rightward, idles, amplifies for playback and respects reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('./');
   await page.getByTestId('finish-onboarding').click();
@@ -107,6 +107,16 @@ test('transparent full-width waveform idles, amplifies for playback and respects
   const opacity = () => page.getByTestId('waveform-intensity').evaluate(node => Number(getComputedStyle(node).opacity));
   await expect.poll(opacity).toBeGreaterThan(.29);
   const playing = await transform(); await expect.poll(transform).not.toBe(playing);
+  const offset = () => wave.evaluate(node => new DOMMatrixReadOnly(getComputedStyle(node).transform).m41);
+  const before = await offset();
+  await page.waitForTimeout(450); const middle = await offset();
+  await page.waitForTimeout(450); const after = await offset();
+  expect(middle).toBeGreaterThan(before); expect(after).toBeGreaterThan(middle);
+  const paths = page.getByTestId('playback-visualizer').locator('path');
+  expect(await paths.count()).toBe(6);
+  expect(await paths.first().getAttribute('fill')).toMatch(/^url\(/);
+  expect(await paths.first().getAttribute('d')).toMatch(/Z$/);
+
   const gradientIds = await page.locator('linearGradient[id^="wave-"]').evaluateAll(nodes => nodes.map(node => node.id));
   expect(new Set(gradientIds).size).toBe(gradientIds.length);
   const bounds = await page.getByTestId('playback-visualizer').boundingBox();

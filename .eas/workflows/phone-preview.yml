@@ -1,0 +1,24 @@
+name: Re-Wired FM iPhone preview
+
+on:
+  workflow_dispatch: {}
+
+defaults:
+  tools:
+    node: '24'
+
+jobs:
+  publish_ios_preview:
+    name: Publish illustrative demo for Expo Go
+    type: update
+    environment: preview
+    params:
+      platform: ios
+      branch: rewired-go-preview
+      message: Re-Wired FM illustrative audio demo for Expo Go
+    hooks:
+      before_update:
+        - name: Check TypeScript and content logic
+          run: |
+            npm run typecheck
+            npm test

@@ -55,17 +55,29 @@ EAS Hosting is an alternative that supports a free account. Export a root-path w
 
 ## Test on your iPhone
 
-### Attempt an Expo Go preview from this cloud workspace
+### Hosted iPhone preview with Expo and GitHub
 
-This is the option for someone using only an iPhone. Install Expo Go and sign in with your personal Expo account. In that account's [access-token settings](https://expo.dev/settings/access-tokens), create a personal access token associated with your login, rather than an automated robot account. Enter it securely as **`EXPO_GO_TOKEN`** in cloud environment settings; retain the existing **`EXPO_TOKEN`** for EAS build tools. Do not paste tokens in chat or commit them. Physical iPhone Expo Go checks that its signed-in account matches the development server's account, and Expo's standard tunnel rejects robot accounts.
+This route is intended for someone using only an iPhone. Install the latest Expo Go from the App Store; it must support **SDK 57**. A published Expo preview lets the phone download the app from Expo without a running cloud tunnel. It tests the native screens and foreground audio; it does not install this app's own background capabilities.
 
-The prepared launcher uses the personal credential only for this process and keeps the regular web server on port 8081:
+The connected Expo project can fetch this repository directly from GitHub. The manual-only workflow in `.eas/workflows/phone-preview.yml` publishes an iOS update to the isolated **`rewired-go-preview`** branch. It does not build an iOS binary, submit to the App Store, change existing production channels, or publish automatically on every commit. The account is on Expo's Free plan; no paid service or Apple Developer membership is required for this preview.
+
+After committing and pushing an authorized change to GitHub, run:
 
 ```sh
-npm run phone:cloud
+npx eas-cli@latest workflow:run .eas/workflows/phone-preview.yml --ref HEAD --non-interactive
 ```
 
-If Expo reports **Tunnel ready**, verify the public tunnel's iOS manifest and bundle before sharing its Expo Go link or QR. Keep the terminal running. On the iPhone, open the verified Expo Go link, or scan its QR code from another screen. Tunnel access and physical-device playback are not yet verified. The initial attempt stopped with **Cannot use ngrok with a robot user**; the personal credential is the next prerequisite. Creating a token alone does not establish a working tunnel or make this app appear automatically in Expo Go.
+`--ref HEAD` asks Expo to fetch that exact GitHub commit rather than uploading this cloud workspace. Check the workflow's success and published update in [the Expo project](https://expo.dev/accounts/paid-to-bring-peace/projects/beau). Use the update's Expo Go preview link or QR after verifying its iOS manifest and assets. A QR must point to the native Expo Go preview; the GitHub Pages link opens the browser app. On an iPhone alone, use a tappable preview link or Expo's Preview button, since the Camera app cannot scan a QR displayed on the same screen. Physical iPhone compatibility and audio still require a device check.
+
+The configured `expo-updates` dependency and `updates.url` connect hosted updates to this project. The `appVersion` runtime policy is Expo Go compatible on supported SDKs. When changing native dependencies or capabilities for this app's own builds, bump `expo.version` and rebuild; do not send incompatible updates to an existing native runtime.
+
+### Live cloud tunnel: diagnosed connection failure
+
+Both cloud credentials were verified: **`EXPO_TOKEN`** is an automated Release Manager for EAS; **`EXPO_GO_TOKEN`** is the personal `bnorton2010` account for a live Expo Go development server. No additional token is needed. Never paste tokens into chat, source, or logs.
+
+The optional launcher `npm run phone:cloud` uses the personal credential only for its process and starts port 8083 while the web server remains on 8081. However, the official ngrok helper failed to create a public tunnel here: initially it rejected a robot user; with the personal account it timed out or closed the tunnel session. Proxy diagnostics also showed blocked tunnel networking. Using ngrok's documented `root_cas: host` trusts the operating system's existing roots without disabling TLS, but the last attempt still ended with **session closed**. A valid local iOS manifest and bundle were served, proving local JavaScript loading, not public reachability.
+
+Direct `eas update` exported the native app but this cloud proxy returned **403** for Expo's storage upload servers. The required network additions were saved as an environment draft; a saved draft does not activate networking. The GitHub-connected workflow above publishes from Expo's own runner instead. Do not share a private LAN QR or promise a working cloud tunnel based on token availability alone.
 
 ### Fast UI and foreground-audio check with Expo Go
 

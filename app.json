@@ -39,6 +39,12 @@
       "expo-status-bar",
       "expo-asset"
     ],
-    "owner": "paid-to-bring-peace"
+    "owner": "paid-to-bring-peace",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f824a207-b43d-4e95-9e57-f38e4a693d80"
+    }
   }
 }

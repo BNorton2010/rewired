@@ -26,14 +26,7 @@ const downloadHeaders = {
   'EAS-Client-ID': 'b4f25cb0-28ac-478b-904d-2159d8c37371',
 };
 
-const response = await fetch(url, {
-  signal: AbortSignal.timeout(30_000),
-  headers: {
-    ...downloadHeaders,
-    Accept: 'multipart/mixed,application/expo+json,application/json',
-  },
-});
-assert.equal(response.status, 200, 'Published iOS manifest must be downloadable.');
+async function readManifestParts(response) {
 const contentType = response.headers.get('content-type') || '';
 const text = await response.text();
 const boundary = contentType.match(/boundary=(?:"([^"]+)"|([^;\s]+))/i);
@@ -43,9 +36,20 @@ const bodies = boundary
       return offset < 0 ? [] : [part.slice(offset + 4).trim()];
     })
   : [text];
-const parts = bodies.flatMap((body) => {
+return bodies.flatMap((body) => {
   try { return [JSON.parse(body)]; } catch { return []; }
 });
+}
+
+const response = await fetch(url, {
+  signal: AbortSignal.timeout(30_000),
+  headers: {
+    ...downloadHeaders,
+    Accept: 'multipart/mixed,application/expo+json,application/json',
+  },
+});
+assert.equal(response.status, 200, 'Published iOS manifest must be downloadable.');
+const parts = await readManifestParts(response);
 const manifest = parts.find((body) => body.id === update.id && body.launchAsset);
 // Expo supplies short-lived, per-asset authorization in a separate multipart
 // extension. Forward it only to Expo's validated CDN, never log or persist it.
@@ -56,6 +60,21 @@ assert.equal(manifest.runtimeVersion, update.runtimeVersion);
 assert.equal(manifest.extra.eas.projectId, config.extra.eas.projectId);
 assert.equal(manifest.extra.expoClient.name, config.name);
 assert.equal(manifest.extra.expoClient.sdkVersion, '57.0.0');
+// A channel URL stays fixed while the branch receives new compatible updates.
+// Validate it against the pinned, fully verified publication before sharing it.
+const latestUrl = new URL(`https://u.expo.dev/${config.extra.eas.projectId}`);
+latestUrl.searchParams.set('channel-name', 'rewired-go-preview');
+latestUrl.searchParams.set('runtime-version', update.runtimeVersion);
+latestUrl.searchParams.set('platform', 'ios');
+const latestResponse = await fetch(latestUrl, {
+  signal: AbortSignal.timeout(30_000),
+  headers: { ...downloadHeaders, Accept: 'multipart/mixed,application/expo+json,application/json' },
+});
+assert.equal(latestResponse.status, 200, 'Stable preview channel must be reachable.');
+const latestManifest = (await readManifestParts(latestResponse)).find(part => part.launchAsset);
+assert.equal(latestManifest?.id, update.id, 'The stable channel must select the verified latest update.');
+assert.equal(latestManifest?.extra?.eas?.projectId, config.extra.eas.projectId);
+
 const audio = manifest.assets.filter((asset) => asset.contentType === 'audio/mpeg');
 assert.equal(audio.length, 3, 'All three illustrative audio samples must be published.');
 
@@ -94,6 +113,8 @@ console.log(JSON.stringify({
   verifiedAssets: assets.length,
   verifiedAudioSamples: audio.length,
   verifiedBytes: bytes,
-  expoGoUrl: goUrl,
+  expoGoUrl: latestUrl.href.replace(/^https:/, 'exps:'),
+  snapshotExpoGoUrl: goUrl,
+  stableChannelVerified: true,
   physicalDeviceTested: false,
 }, null, 2));

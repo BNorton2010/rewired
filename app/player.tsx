@@ -19,7 +19,7 @@ export default function PlayerScreen() {
   const lesson = audio.lesson ?? recommend(store.state.preferences, store.state.completedLessons);
   const saved = store.state.favorites.includes(lesson.id);
   const wide = width > 1000;
-  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}><PlaybackVisualizer playing={audio.playing && !audio.loading} /><Page style={{ paddingTop: 15, backgroundColor: 'transparent' }}>
+  return <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}><PlaybackVisualizer playing={audio.playing && !audio.loading} /><Page transparent style={{ paddingTop: 15 }}>
     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><IconButton name="chevron-down" label="Close player" onPress={() => router.canGoBack() ? router.back() : router.replace('/')} /><Label>NOW PLAYING · DEMO</Label><IconButton name="heart" label={saved ? 'Remove favorite' : 'Add favorite'} selected={saved} color={saved ? colors.gold : colors.ink} onPress={() => store.favorite(lesson.id)} /></View>
     <View style={{ flexDirection: wide ? 'row' : 'column', gap: wide ? 60 : 28, maxWidth: 960, width: '100%', alignSelf: 'center', alignItems: wide ? 'center' : 'stretch' }}>
       <CosmicArt kind={lesson.artwork === 'sunrise' ? 'orbit' : lesson.artwork} orbit style={{ flex: wide ? 1 : undefined, height: wide ? 440 : Math.min(width - 44, 360), maxWidth: wide ? undefined : 420, width: wide ? undefined : '100%', alignSelf: 'center', borderRadius: 26, borderWidth: 1, borderColor: colors.line }} />

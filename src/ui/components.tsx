@@ -21,9 +21,9 @@ export function IconButton({ name, label, onPress, color, selected, size = 22 }:
 export function Pill({ title, selected, onPress, testID }: { title: string; selected?: boolean; onPress: () => void; testID?: string }) {
   return <Pressable testID={testID} accessibilityRole="button" accessibilityState={{ selected: !!selected }} aria-pressed={!!selected} onPress={onPress} style={({ pressed }) => [styles.pill, selected && { backgroundColor: colors.gold, borderColor: colors.gold }, pressed && { opacity: .7 }, styles.focus]}><Text style={{ color: selected ? colors.bg : colors.ink, fontSize: 14, fontWeight: selected ? '700' : '500' }}>{title}</Text></Pressable>;
 }
-export function Page({ children, style }: React.PropsWithChildren<{ style?: StyleProp<ViewStyle> }>) {
+export function Page({ children, style, transparent = false }: React.PropsWithChildren<{ style?: StyleProp<ViewStyle>; transparent?: boolean }>) {
   const { width } = useWindowDimensions();
-  return <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={[{ padding: width > 760 ? 38 : 22, paddingBottom: 36, alignItems: 'center' }, style]}><View style={{ width: '100%', maxWidth: 1120, gap: 26 }}>{children}</View></ScrollView>;
+  return <ScrollView style={{ flex: 1, backgroundColor: transparent ? 'transparent' : colors.bg }} contentContainerStyle={[{ padding: width > 760 ? 38 : 22, paddingBottom: 36, alignItems: 'center' }, style]}><View style={{ width: '100%', maxWidth: 1120, gap: 26 }}>{children}</View></ScrollView>;
 }
 export function SectionTitle({ title, right }: { title: string; right?: React.ReactNode }) { return <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}><Text style={styles.sectionTitle}>{title}</Text>{right}</View>; }
 export const styles = StyleSheet.create({

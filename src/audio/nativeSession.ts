@@ -12,36 +12,59 @@ export const nativePlaybackMode: AudioMode = {
   shouldRouteThroughEarpiece: false,
 };
 
-interface NativeSession {
-  setMode(mode: AudioMode): Promise<void>;
-  setActive(active: boolean): Promise<void>;
+/** Share the initial bridge call; foreground recovery can invalidate this cache. */
+export function createNativePlaybackSession(setMode: (mode: AudioMode) => Promise<void>) {
+  let ready = false;
+  let generation = 0;
+  let pending: Promise<void> | null = null;
+  return {
+    get ready() { return ready; },
+    prepare() {
+      if (ready) return Promise.resolve();
+      if (pending) return pending;
+      const attempt = generation;
+      const preparation = setMode(nativePlaybackMode).then(() => {
+        if (attempt === generation) ready = true;
+      }).finally(() => {
+        if (pending === preparation) pending = null;
+      });
+      pending = preparation;
+      return preparation;
+    },
+    invalidate() { generation += 1; ready = false; pending = null; },
+  };
 }
+type NativeSession = ReturnType<typeof createNativePlaybackSession>;
 interface NativeTransport {
   play(): void;
   setActiveForLockScreen(active: boolean, metadata: AudioMetadata, options: { showSeekBackward: boolean; showSeekForward: boolean }): void;
   updateLockScreenMetadata(metadata: AudioMetadata): void;
 }
 
-/** Configure and activate before transport, guarding each asynchronous boundary. */
+/** A prepared resume reaches native play synchronously, before any promise yield. */
 export async function startNativePlayback(player: NativeTransport, session: NativeSession, options: {
   current: () => boolean;
   metadata: AudioMetadata;
   lockScreenRegistered: boolean;
+  metadataChanged?: boolean;
   onLockScreenRegistered?: () => void;
+  onMetadataApplied?: () => void;
 }) {
   if (!options.current()) return false;
   try {
-    await session.setMode(nativePlaybackMode);
-    if (!options.current()) return false;
-    // setAudioModeAsync sets the native category; activation is a separate API.
-    // Explicit activation also recovers an audio client disabled by a previous
-    // session without relying on a background JavaScript timer to replay audio.
-    await session.setActive(true);
-    if (!options.current()) return false;
-    if (options.lockScreenRegistered) player.updateLockScreenMetadata(options.metadata);
-    else {
+    while (!session.ready) {
+      await session.prepare();
+      if (!options.current()) return false;
+    }
+    // SDK 57's native play() activates AVAudioSession itself. A separate
+    // asynchronous activation and category reset on every tap delays transport.
+    if (options.lockScreenRegistered && options.metadataChanged !== false) {
+      player.updateLockScreenMetadata(options.metadata);
+      options.onMetadataApplied?.();
+    } else if (!options.lockScreenRegistered) {
       player.setActiveForLockScreen(true, options.metadata, { showSeekBackward: true, showSeekForward: true });
       options.onLockScreenRegistered?.();
+      options.onMetadataApplied?.();
     }
     player.play();
     return true;

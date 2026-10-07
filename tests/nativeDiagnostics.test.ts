@@ -5,6 +5,7 @@ import { createPlaybackDiagnostics, type PlaybackDiagnosticSnapshot } from '../s
 const runtime = {
   platform: 'ios', osVersion: '26.0', environment: 'storeClient', appVersion: '0.1.0',
   expoGoVersion: '57.0.13', sdkVersion: '57.0.0', updateId: '01a11498-c304-7c58-99f6-b2f0266398dd',
+  previewRevision: 'gold-flow-4',
 };
 const snapshot: PlaybackDiagnosticSnapshot = {
   appState: 'active', lesson: 'trust-again', intendedPlaying: true, prepared: true,
@@ -23,7 +24,9 @@ test('device playback report retains only thirty recent lifecycle events and the
   assert.equal(report.events.at(-1).event, 'app-state'); assert.equal(report.events.at(-1).appState, 'background');
   assert.equal(report.current.position, 41.2); assert.equal(report.current.duration, 300);
   assert.equal(report.runtime.expoGoVersion, '57.0.13'); assert.equal(report.runtime.updateId, runtime.updateId);
+  assert.equal(report.runtime.previewRevision, runtime.previewRevision);
   assert.equal(report.session.modeAppliedAt, clock().toISOString()); assert.equal(report.session.activationAppliedAt, clock().toISOString());
+  assert.equal(report.session.activationOwner, 'native-player.play');
 });
 
 test('playback diagnostics discard audio URLs, credential fields and native exception messages', () => {

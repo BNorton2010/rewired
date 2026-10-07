@@ -24,7 +24,7 @@ export function auroraPoint(x: number, phase: number, layer: number, energy: num
 /** Modest geometry keeps path morphing on the native UI thread inexpensive. */
 export function auroraRibbon(phase: number, layer: number, energy: number) {
   'worklet';
-  const step = 50;
+  const step = 100;
   const first = auroraPoint(-100, phase, layer, energy, false);
   let path = `M${first.x},${first.y.toFixed(2)}`;
   for (let side = 0; side < 2; side++) {
@@ -32,7 +32,7 @@ export function auroraRibbon(phase: number, layer: number, energy: number) {
     const start = lower ? 1300 : -100;
     const direction = lower ? -1 : 1;
     if (lower) path += ` L1300,${auroraPoint(1300, phase, layer, energy, true).y.toFixed(2)}`;
-    for (let i = 0; i < 28; i++) {
+    for (let i = 0; i < 14; i++) {
       const a = auroraPoint(start + direction * i * step, phase, layer, energy, lower);
       const b = auroraPoint(a.x + direction * step, phase, layer, energy, lower);
       const control = (b.x - a.x) / 3;

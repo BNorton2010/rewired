@@ -28,6 +28,7 @@ export interface PlaybackDiagnosticRuntime {
   expoGoVersion: string | null;
   sdkVersion: string | undefined;
   updateId: string | null;
+  previewRevision?: string;
 }
 const shortIdentifier = (value: unknown) => typeof value === 'string' && /^[a-zA-Z0-9_.-]{1,64}$/.test(value) ? value : null;
 const seconds = (value: number) => Number.isFinite(value) ? Math.round(Math.max(0, Math.min(86400, value)) * 10) / 10 : 0;
@@ -77,8 +78,9 @@ export function createPlaybackDiagnostics(runtime: PlaybackDiagnosticRuntime, cl
           environment: shortIdentifier(runtime.environment), appVersion: shortIdentifier(runtime.appVersion),
           expoGoVersion: shortIdentifier(runtime.expoGoVersion), sdkVersion: shortIdentifier(runtime.sdkVersion),
           updateId: typeof runtime.updateId === 'string' && /^[a-f0-9-]{36}$/i.test(runtime.updateId) ? runtime.updateId : null,
+          previewRevision: shortIdentifier(runtime.previewRevision),
         },
-        session, current: sanitizedSnapshot(snapshot), events,
+        session: { ...session, activationOwner: 'native-player.play' }, current: sanitizedSnapshot(snapshot), events,
       }, null, 2);
     },
   };

@@ -110,9 +110,11 @@ test('gold aurora changes shape, stays behind controls, idles and respects reduc
   const paths = visualizer.locator('path[id*="-ribbon-"]');
   const shape = () => paths.first().getAttribute('d');
   const opacity = () => page.getByTestId('waveform-intensity').evaluate(node => Number(getComputedStyle(node).opacity));
-  await expect.poll(opacity).toBeGreaterThan(.54);
-  expect(await opacity()).toBeLessThanOrEqual(.57);
-  expect(await paths.count()).toBe(6);
+  await expect.poll(opacity).toBeGreaterThan(.76);
+  expect(await opacity()).toBeLessThanOrEqual(.79);
+  expect(await paths.count()).toBe(4);
+  // Avoid the native per-frame bitmap/filter pipeline that made touches lag.
+  expect(await visualizer.locator('filter, mask, [filter], [mask]').count()).toBe(0);
   const playing = await shape();
   await expect.poll(shape).not.toBe(playing);
   expect(playing).toMatch(/Z$/);
@@ -140,19 +142,21 @@ test('gold aurora changes shape, stays behind controls, idles and respects reduc
   expect(new Set(gradientIds).size).toBe(gradientIds.length);
 
   await page.getByTestId('player-toggle').click();
-  await expect.poll(opacity).toBeLessThan(.29);
-  expect(await opacity()).toBeGreaterThan(.25);
+  await expect.poll(opacity).toBeLessThan(.45);
+  expect(await opacity()).toBeGreaterThan(.41);
   const idle = await shape(); await expect.poll(shape).not.toBe(idle);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.waitForTimeout(200);
   const frozenIdle = await shape();
   await page.waitForTimeout(400); expect(await shape()).toBe(frozenIdle);
   await page.getByTestId('player-toggle').click();
-  await expect.poll(opacity).toBeGreaterThan(.54);
+  await expect.poll(opacity).toBeGreaterThan(.76);
   await page.waitForTimeout(200);
   const frozenPlaying = await shape();
   await page.waitForTimeout(400); expect(await shape()).toBe(frozenPlaying);
   await page.screenshot({ path: 'test-results/player-gold-aurora.png', fullPage: true });
+  await page.getByRole('button', { name: 'Playback information', exact: true }).click();
+  await expect(page.getByTestId('preview-revision')).toContainText('gold-flow-4');
   expect(errors).toEqual([]);
 });
 

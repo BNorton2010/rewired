@@ -1,19 +1,22 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
 import { AccessibilityInfo, AppState, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { Easing, useAnimatedProps, useAnimatedStyle, useDerivedValue, useFrameCallback, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
-import Svg, { Defs, LinearGradient, Stop, Path, G, Filter, FeGaussianBlur, Mask, Rect } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import { auroraRibbon, AURORA_HEIGHT, AURORA_WIDTH, TAU } from './auroraGeometry';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
-const golds = ['#A67A43', '#C29558', '#D8B477', '#EDD099', '#F0DBB0', '#BE955E'];
+const ribbons = [
+  { layer: 0, gold: '#D6A655', opacity: .55 },
+  { layer: 1, gold: '#EBC576', opacity: .6 },
+  { layer: 2, gold: '#F6D797', opacity: .55 },
+  { layer: 4, gold: '#FFE8B2', opacity: .6 },
+];
 
 function Ribbon({ id, index, phase, energy }: { id: string; index: number; phase: SharedValue<number>; energy: SharedValue<number> }) {
-  const geometry = useDerivedValue(() => auroraRibbon(phase.value, index, energy.value));
+  const ribbon = ribbons[index];
+  const geometry = useDerivedValue(() => auroraRibbon(phase.value, ribbon.layer, energy.value));
   const animatedProps = useAnimatedProps(() => ({ d: geometry.value }));
-  return <>
-    {index === 0 && <AnimatedPath animatedProps={animatedProps} fill={golds[index]} opacity={.16} filter={`url(#wave-${id}-glow)`} />}
-    <AnimatedPath id={`wave-${id}-ribbon-${index}`} animatedProps={animatedProps} fill={`url(#wave-${id}-${index})`} opacity={index < 3 ? .5 : .7} filter={`url(#wave-${id}-silk)`} />
-  </>;
+  return <AnimatedPath id={`wave-${id}-ribbon-${index}`} animatedProps={animatedProps} fill={`url(#wave-${id}-${index})`} opacity={ribbon.opacity} />;
 }
 
 /** Decorative gold silk, not a measurement of the sample's audio frequencies. */
@@ -50,26 +53,18 @@ export const PlaybackVisualizer = React.memo(function PlaybackVisualizer({ playi
     energy.value = withTiming(playing ? 1 : .2, { duration: reduceMotion ? 0 : 1400, easing: Easing.inOut(Easing.quad) });
     tempo.value = withTiming(playing ? 10000 : 26000, { duration: reduceMotion ? 0 : 1000 });
   }, [playing, reduceMotion, energy, tempo]);
-  // Individual ribbons already have soft, transparent gradients. Keep the
-  // full-width layer visible rather than dimming it a second time into black.
-  const intensity = useAnimatedStyle(() => ({ opacity: compact ? .2 + .45 * energy.value : .2 + .36 * energy.value }));
+  // Gradient fills provide softness directly. SVG filters/masks rasterize large
+  // offscreen images on iOS for every redraw, competing with transport touches.
+  const intensity = useAnimatedStyle(() => ({ opacity: compact ? .2 + .45 * energy.value : .35 + .43 * energy.value }));
   return <View testID={compact ? 'mini-visualizer' : 'playback-visualizer'} pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[compact ? { width: 28, height: 22, overflow: 'hidden' } : { position: 'absolute', left: 0, right: 0, top: 0, height: 380, overflow: 'hidden', zIndex: 0 }, style]}>
     <Animated.View testID={!compact ? 'waveform-intensity' : undefined} style={[{ width: '100%', height: '100%' }, intensity]}>
       <Svg width="100%" height="100%" viewBox={`0 0 ${AURORA_WIDTH} ${AURORA_HEIGHT}`} preserveAspectRatio="none">
         <Defs>
-          <Filter id={`wave-${id}-glow`} x="-20%" y="-50%" width="140%" height="200%"><FeGaussianBlur stdDeviation="10" /></Filter>
-          <Filter id={`wave-${id}-silk`} x="-20%" y="-50%" width="140%" height="200%"><FeGaussianBlur stdDeviation="1.5" /></Filter>
-          <LinearGradient id={`wave-${id}-fade`} x1="0%" x2="0%" y1="0%" y2="100%">
-            <Stop offset="0" stopColor="white" stopOpacity="0" /><Stop offset=".3" stopColor="white" /><Stop offset=".65" stopColor="white" /><Stop offset="1" stopColor="white" stopOpacity="0" />
-          </LinearGradient>
-          <Mask id={`wave-${id}-mask`}><Rect width={AURORA_WIDTH} height={AURORA_HEIGHT} fill={`url(#wave-${id}-fade)`} /></Mask>
-          {golds.map((color, i) => <LinearGradient key={i} id={`wave-${id}-${i}`} x1="0%" x2="0%" y1="0%" y2="100%">
-            <Stop offset="0" stopColor={color} stopOpacity="0" /><Stop offset=".3" stopColor={color} stopOpacity=".12" /><Stop offset=".5" stopColor={color} stopOpacity=".9" /><Stop offset=".7" stopColor={color} stopOpacity=".12" /><Stop offset="1" stopColor={color} stopOpacity="0" />
+          {ribbons.map(({ gold }, i) => <LinearGradient key={i} id={`wave-${id}-${i}`} x1="0%" x2="0%" y1="0%" y2="100%">
+            <Stop offset="0" stopColor={gold} stopOpacity="0" /><Stop offset=".25" stopColor={gold} stopOpacity=".12" /><Stop offset=".5" stopColor={gold} stopOpacity=".8" /><Stop offset=".75" stopColor={gold} stopOpacity=".12" /><Stop offset="1" stopColor={gold} stopOpacity="0" />
           </LinearGradient>)}
         </Defs>
-        <G mask={`url(#wave-${id}-mask)`}>
-          {golds.map((_, index) => <Ribbon key={index} id={id} index={index} phase={phase} energy={energy} />)}
-        </G>
+        {ribbons.map((_, index) => <Ribbon key={index} id={id} index={index} phase={phase} energy={energy} />)}
       </Svg>
     </Animated.View>
   </View>;

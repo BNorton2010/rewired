@@ -1,17 +1,18 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { Asset } from 'expo-asset';
 import Constants from 'expo-constants';
-import { setAudioModeAsync, setIsAudioActiveAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { getLesson, type Lesson } from '../content/catalog';
 import { clampPosition } from '../content/logic';
 import { useStore } from '../persistence/Store';
 import { audioSources } from './sources';
 import { prepareNativePlayback } from './nativePreparation';
-import { nativePlaybackMode, startNativePlayback } from './nativeSession';
+import { createNativePlaybackSession, nativePlaybackMode, startNativePlayback } from './nativeSession';
 import { createNativeSeekQueue, shouldHandleNativeCompletion } from './nativeSeek';
 import { createPlaybackDiagnostics, type PlaybackDiagnosticEvent } from './nativeDiagnostics';
 import type { AudioContextValue } from './types';
+import { previewRevision } from '../preview';
 const Context = createContext<AudioContextValue | null>(null);
 export function AudioProvider({ children }: React.PropsWithChildren) {
   const store = useStore();
@@ -25,16 +26,19 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
   const [finished, setFinished] = useState(false);
   const [loading, setLoading] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [playing, setPlaying] = useState(false);
   const [seekPosition, setSeekPosition] = useState<number | null>(null);
   const selected = useRef<Lesson | undefined>(undefined);
   const request = useRef<AbortController | null>(null);
   const prepared = useRef(false);
   const wantsPlay = useRef(false);
+  const pendingStart = useRef(false);
   const completionHandled = useRef(false);
   const restored = useRef(false);
   const lastSavedAt = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lockScreenRegistered = useRef(false);
+  const lockScreenLesson = useRef<string | null>(null);
   const seekQueue = useRef<ReturnType<typeof createNativeSeekQueue> | null>(null);
   const seekGeneration = useRef(0);
   const pendingSeekPosition = useRef<number | null>(null);
@@ -46,6 +50,7 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
     platform: Platform.OS, osVersion: String(Platform.Version), environment: Constants.executionEnvironment,
     appVersion: Constants.expoConfig?.version, expoGoVersion: Constants.expoVersion,
     sdkVersion: Constants.expoConfig?.sdkVersion, updateId: Constants.manifest2?.id ?? null,
+    previewRevision,
   });
   const diagnosticSnapshot = useCallback(() => {
     // Diagnostics must not throw if an in-flight session callback arrives after
@@ -69,6 +74,8 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
     try { await setAudioModeAsync(nativePlaybackMode); record('mode-applied'); }
     catch (failure) { record('mode-error', failure); throw failure; }
   }, [record]);
+  const session = useMemo(() => createNativePlaybackSession(configureMode), [configureMode]);
+  const setPendingStart = useCallback((value: boolean) => { pendingStart.current = value; setStarting(value); }, []);
   const clearTimer = useCallback(() => { if (timer.current) clearTimeout(timer.current); timer.current = null; }, []);
   const savePosition = useCallback(() => {
     if (selected.current && prepared.current && player.isLoaded && !completionHandled.current) {
@@ -80,24 +87,25 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
     const generation = ++startGeneration.current;
     const item = selected.current!;
     const current = () => generation === startGeneration.current && !signal.aborted && wantsPlay.current && selected.current === item && prepared.current;
-    setStarting(true);
+    setPendingStart(true);
     try {
       const metadata = { title: item.title, artist: 'Re-Wired FM · Demo ambient sample', albumTitle: 'Your daily frequency' };
-      const started = await startNativePlayback(player, { setMode: configureMode, setActive: async active => {
-        record('activation-requested');
-        try { await setIsAudioActiveAsync(active); record('activation-applied'); }
-        catch (failure) { record('activation-error', failure); throw failure; }
-      } }, {
+      const started = await startNativePlayback(player, session, {
         current,
         metadata, lockScreenRegistered: lockScreenRegistered.current,
+        metadataChanged: lockScreenLesson.current !== item.id,
         onLockScreenRegistered: () => { lockScreenRegistered.current = true; },
+        onMetadataApplied: () => { lockScreenLesson.current = item.id; },
       });
       if (!started || !current()) { record('start-cancelled'); return; }
       record('play-issued');
       clearTimer();
+      // The native transport is readable immediately; a warmed play should not
+      // wait for the 250 ms position observer to update its button or artwork.
+      if (player.playing) { setPlaying(true); setPendingStart(false); return; }
       timer.current = setTimeout(() => {
         if (current() && !player.playing) {
-          wantsPlay.current = false; player.pause(); setStarting(false); setLoading(false);
+          wantsPlay.current = false; player.pause(); setPlaying(false); setPendingStart(false); setLoading(false);
           record('start-timeout');
           setError('Playback did not start. Please retry the sample.');
         }
@@ -105,21 +113,21 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
     } catch (failure) {
       if (!current()) { record('start-cancelled'); return; }
       record('start-error', failure);
-      wantsPlay.current = false; setStarting(false); setLoading(false); setError('The audio session could not start. Please retry playback.');
+      wantsPlay.current = false; setPlaying(false); setPendingStart(false); setLoading(false); setError('The audio session could not start. Please retry playback.');
     }
-  }, [player, clearTimer, configureMode, record]);
+  }, [player, clearTimer, session, record, setPendingStart]);
   const load = useCallback((item: Lesson, autoplay: boolean) => {
     startGeneration.current += 1;
-    savePosition(); request.current?.abort(); clearTimer(); player.pause();
+    savePosition(); request.current?.abort(); clearTimer(); player.pause(); setPlaying(false);
     seekQueue.current?.cancel(); seekQueue.current = null; seekGeneration.current += 1; pendingSeekPosition.current = null; setSeekPosition(null);
     const controller = new AbortController(); request.current = controller;
     prepared.current = false; wantsPlay.current = autoplay; completionHandled.current = false;
     lastNativeFlags.current = { error: false, mediaServicesReset: false }; lastDiagnosticStatus.current = '';
-    selected.current = item; setLesson(item); setFinished(false); setError(null); setLoading(true); setStarting(autoplay);
+    selected.current = item; setLesson(item); setFinished(false); setError(null); setLoading(true); setPendingStart(autoplay);
     record('source-selected'); if (autoplay) record('play-requested');
     storeRef.current.setLastLesson(item.id); lastSavedAt.current = Date.now();
     timer.current = setTimeout(() => {
-      controller.abort(); wantsPlay.current = false; player.pause(); setLoading(false); setStarting(false);
+      controller.abort(); wantsPlay.current = false; player.pause(); setPlaying(false); setLoading(false); setPendingStart(false);
       record('load-timeout');
       setError('This sample is taking too long to load. Check your connection and retry.');
     }, 30000);
@@ -141,14 +149,14 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
       seekQueue.current = createNativeSeekQueue((seconds, before, after) => player.seekTo(seconds, before, after), () => player.currentTime);
       clearTimer(); setLoading(false);
       if (wantsPlay.current) await start(controller.signal);
-      else setStarting(false);
+      else setPendingStart(false);
     }).catch(failure => {
       if (controller.signal.aborted) return;
-      clearTimer(); wantsPlay.current = false; setLoading(false); setStarting(false);
+      clearTimer(); wantsPlay.current = false; setPlaying(false); setLoading(false); setPendingStart(false);
       record('source-error', failure);
       setError('The sample could not be loaded. Please retry.');
     });
-  }, [player, savePosition, clearTimer, start, record]);
+  }, [player, savePosition, clearTimer, start, record, setPendingStart]);
   useEffect(() => {
     if (store.ready && !restored.current) {
       restored.current = true;
@@ -159,13 +167,21 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
   useEffect(() => {
     const subscription = player.addListener('playbackStatusUpdate', next => {
       if (!prepared.current || !selected.current) return;
+      if (next.mediaServicesDidReset && !lastNativeFlags.current.mediaServicesReset) session.invalidate();
       lastNativeFlags.current = { error: !!next.error, mediaServicesReset: !!next.mediaServicesDidReset };
       const key = `${next.playing}|${next.isLoaded}|${next.isBuffering}|${next.didJustFinish}|${!!next.error}|${next.mediaServicesDidReset}|${next.timeControlStatus}|${next.reasonForWaitingToPlay}`;
       if (key !== lastDiagnosticStatus.current) { lastDiagnosticStatus.current = key; record('native-status'); }
-      if (next.error) { wantsPlay.current = false; record('native-error', next.error); clearTimer(); setStarting(false); setError('Audio playback failed. Please retry the sample.'); }
-      if (next.playing) { wantsPlay.current = true; clearTimer(); setStarting(false); }
+      if (next.error) { wantsPlay.current = false; record('native-error', next.error); clearTimer(); setPendingStart(false); setPlaying(false); setError('Audio playback failed. Please retry the sample.'); }
+      else {
+        // A queued status can describe the frame before a rapid pause. Read the
+        // current native transport instead of reviving stale playback intent.
+        const actuallyPlaying = player.playing;
+        setPlaying(actuallyPlaying);
+        if (actuallyPlaying) { wantsPlay.current = true; clearTimer(); setPendingStart(false); }
+        else if (!pendingStart.current) wantsPlay.current = false;
+      }
       if (shouldHandleNativeCompletion(next.didJustFinish, pendingSeekPosition.current, player.duration, player.currentTime) && !completionHandled.current) {
-        completionHandled.current = true; wantsPlay.current = false; setStarting(false); setFinished(true);
+        completionHandled.current = true; wantsPlay.current = false; setPlaying(false); setPendingStart(false); setFinished(true);
         record('completed');
         storeRef.current.complete(selected.current.id);
       } else if (!completionHandled.current && Date.now() - lastSavedAt.current > 3000) {
@@ -173,15 +189,15 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
       }
     });
     return () => subscription.remove();
-  }, [player, clearTimer, savePosition, record]);
+  }, [player, clearTimer, savePosition, record, session, setPendingStart]);
   useEffect(() => {
     // Configure the module before the first source is downloaded. Foreground
     // recovery reapplies the category, but never starts an interrupted player.
     record('provider-ready');
-    void configureMode().catch(() => {
+    void session.prepare().catch(() => {
       // A play tap retries configuration and presents an actionable error.
     });
-  }, [configureMode, record]);
+  }, [session, record]);
   useEffect(() => {
     // Backgrounding saves progress; it must never pause the transport.
     const subscription = AppState.addEventListener('change', next => {
@@ -191,11 +207,12 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
         // Reassert only on return to foreground, never during an interruption.
         // Do not play or activate: a call, headset disconnect or remote pause
         // retains the OS's transport decision.
-        void configureMode().catch(() => {});
+        session.invalidate();
+        void session.prepare().catch(() => {});
       }
     });
     return () => { startGeneration.current += 1; subscription.remove(); savePosition(); request.current?.abort(); seekQueue.current?.cancel(); clearTimer(); player.clearLockScreenControls(); };
-  }, [player, savePosition, clearTimer, configureMode, record]);
+  }, [player, savePosition, clearTimer, session, record]);
   const seek = useCallback((seconds: number) => {
     if (!prepared.current || !player.isLoaded || !seekQueue.current) return;
     completionHandled.current = false; setFinished(false);
@@ -216,28 +233,28 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
   }, [player, savePosition, record]);
   const resume = useCallback(() => {
     if (!selected.current) return;
-    wantsPlay.current = true; setStarting(true);
+    wantsPlay.current = true; setPendingStart(true);
     record('play-requested');
     if (!prepared.current || !request.current) return;
     if (completionHandled.current) { load(selected.current, true); return; }
     void start(request.current.signal);
-  }, [load, start, record]);
+  }, [load, start, record, setPendingStart]);
   const toggle = useCallback(() => {
     if (!selected.current) return;
     if (error) { load(selected.current, true); return; }
-    if (player.playing || starting) { startGeneration.current += 1; wantsPlay.current = false; record('pause-requested'); if (prepared.current) clearTimer(); setStarting(false); player.pause(); savePosition(); }
+    if (player.playing || pendingStart.current) { startGeneration.current += 1; wantsPlay.current = false; setPendingStart(false); setPlaying(false); player.pause(); record('pause-requested'); if (prepared.current) clearTimer(); savePosition(); }
     else resume();
-  }, [player, starting, error, load, clearTimer, savePosition, resume, record]);
+  }, [player, error, load, clearTimer, savePosition, resume, record, setPendingStart]);
   const playLesson = useCallback((item: Lesson) => {
     if (selected.current?.id !== item.id || error) load(item, true);
-    else if (!player.playing && !starting) resume();
-  }, [player, error, starting, load, resume]);
+    else if (!player.playing && !pendingStart.current) resume();
+  }, [player, error, load, resume]);
   const changeSpeed = useCallback(() => {
     const speeds = [.75, 1, 1.25, 1.5, 2];
     const speed = speeds[(speeds.indexOf(storeRef.current.state.speed) + 1) % speeds.length];
     try { if (prepared.current) player.setPlaybackRate(speed); storeRef.current.setSpeed(speed); } catch { setError('Playback speed could not be changed on this device.'); }
   }, [player]);
-  return <Context.Provider value={{ lesson, playing: prepared.current && player.playing, starting, loading: loading || (prepared.current && status.isBuffering), position: prepared.current ? (seekPosition ?? player.currentTime) : 0, duration: prepared.current ? player.duration : 0, error, finished, speed: store.state.speed, playLesson, toggle, seek, skip: seconds => seek((pendingSeekPosition.current ?? player.currentTime) + seconds), changeSpeed, retry: () => { if (selected.current) load(selected.current, true); }, getPlaybackReport: () => diagnostics.current!.report(diagnosticSnapshot()) }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ lesson, playing: prepared.current && playing, starting, loading: loading || (prepared.current && (playing || starting) && status.isBuffering), position: prepared.current ? (seekPosition ?? player.currentTime) : 0, duration: prepared.current ? player.duration : 0, error, finished, speed: store.state.speed, playLesson, toggle, seek, skip: seconds => seek((pendingSeekPosition.current ?? player.currentTime) + seconds), changeSpeed, retry: () => { if (selected.current) load(selected.current, true); }, getPlaybackReport: () => diagnostics.current!.report(diagnosticSnapshot()) }}>{children}</Context.Provider>;
 }
 export function useAudio() {
   const audio = useContext(Context);

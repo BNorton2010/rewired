@@ -12,6 +12,7 @@ import { PlaybackVisualizer } from '../src/ui/PlaybackVisualizer';
 import { TransportControls, PlayerToolbar } from '../src/ui/PlayerControls';
 import { SeekBar } from '../src/ui/SeekBar';
 import { colors, fonts } from '../src/ui/theme';
+import { previewRevision } from '../src/preview';
 
 export default function PlayerScreen() {
   const audio = useAudio();
@@ -59,6 +60,7 @@ export default function PlayerScreen() {
               <Pressable accessibilityRole="button" accessibilityLabel="Playback information" accessibilityState={{ expanded: showInfo }} onPress={() => setShowInfo(v => !v)} style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' }}><Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 10 }}>Playback information <Text style={{ color: colors.gold }}>↗</Text></Text></Pressable>
             </View>
             {showInfo && <View style={{ gap: 12 }}>
+              <Text testID="preview-revision" style={{ fontFamily: fonts.body, color: colors.muted, fontSize: 12, lineHeight: 20 }}>Preview version: {previewRevision}</Text>
               <Body style={{ fontSize: 12, lineHeight: 20 }}>{Platform.OS === 'web' ? 'Browser preview: playback starts after a tap. Background audio and media controls depend on your browser and may stop when the tab sleeps. Use the native app to check screen-lock playback.' : 'Native demo: background audio and lock-screen controls are configured. Calls and disconnected headphones can pause playback. Tap play to resume when you are ready.'}</Body>
               {audio.getPlaybackReport && <>
                 <Body style={{ fontSize: 12, lineHeight: 20 }}>If screen-lock playback stops, this report helps us check what happened. It contains recent playback events and app versions; no credentials or file addresses.</Body>

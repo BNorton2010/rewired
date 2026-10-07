@@ -2,7 +2,7 @@
   "projectId": "f824a207-b43d-4e95-9e57-f38e4a693d80",
   "updateId": "01a1144b-3d36-7591-8840-cf16262ee25e",
   "groupId": "6b6cdaf3-1054-4f24-acd2-62d41b483704",
-  "expoGoUrl": "exps://u.expo.dev/update/01a1144b-3d36-7591-8840-cf16262ee25e",
+  "expoGoUrl": "exps://u.expo.dev/f824a207-b43d-4e95-9e57-f38e4a693d80?channel-name=rewired-go-preview&runtime-version=0.1.0&platform=ios",
   "platform": "ios",
   "sdkVersion": "57.0.0",
   "nativeSourceCommit": "bb6139543dd3862843c9baabba6eff341a5ce965",
@@ -15,5 +15,13 @@
     "verifiedAssets": 46,
     "verifiedAudioSamples": 3,
     "verifiedBytes": 14777772
+  },
+  "snapshotExpoGoUrl": "exps://u.expo.dev/update/01a1144b-3d36-7591-8840-cf16262ee25e",
+  "channel": "rewired-go-preview",
+  "linkMode": "latest-compatible-update",
+  "stableLinkVerification": {
+    "resolvedUpdateId": "01a1144b-3d36-7591-8840-cf16262ee25e",
+    "serverVerified": true,
+    "authenticatedDeviceTested": false
   }
 }

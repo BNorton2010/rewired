@@ -22,6 +22,8 @@
   "stableLinkVerification": {
     "resolvedUpdateId": "01a1144b-3d36-7591-8840-cf16262ee25e",
     "serverVerified": true,
-    "authenticatedDeviceTested": false
+    "authenticatedDeviceTested": false,
+    "workflowRunId": "01a11453-7ce6-790a-96c4-341355dac921",
+    "status": "SUCCESS"
   }
 }

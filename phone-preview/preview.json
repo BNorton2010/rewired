@@ -25,5 +25,12 @@
     "authenticatedDeviceTested": false,
     "workflowRunId": "01a114db-8911-7305-8d75-861646bcb1a1",
     "status": "SUCCESS"
-  }
+  },
+  "pendingPhoneUpdate": {
+    "workflowRunId": "01a116e6-daf2-7b50-ad91-c782f084dfe7",
+    "sourceCommit": "a63ff7067b62406ac89b90e1d8bb76ea47982b9f",
+    "previewRevision": "gold-flow-4",
+    "status": "IN_QUEUE"
+  },
+  "webPreviewRevision": "gold-flow-4"
 }

@@ -43,9 +43,14 @@ const bodies = boundary
       return offset < 0 ? [] : [part.slice(offset + 4).trim()];
     })
   : [text];
-const manifest = bodies.flatMap((body) => {
+const parts = bodies.flatMap((body) => {
   try { return [JSON.parse(body)]; } catch { return []; }
-}).find((body) => body.id === update.id && body.launchAsset);
+});
+const manifest = parts.find((body) => body.id === update.id && body.launchAsset);
+// Expo supplies short-lived, per-asset authorization in a separate multipart
+// extension. Forward it only to Expo's validated CDN, never log or persist it.
+const assetRequestHeaders = parts.find((body) => body.assetRequestHeaders)?.assetRequestHeaders;
+assert(assetRequestHeaders, 'The manifest must include asset download authorization.');
 assert(manifest, 'A valid manifest was not returned.');
 assert.equal(manifest.runtimeVersion, update.runtimeVersion);
 assert.equal(manifest.extra.eas.projectId, config.extra.eas.projectId);
@@ -62,7 +67,7 @@ for (let offset = 0; offset < assets.length; offset += 4) {
     assert.equal(assetUrl.origin, 'https://assets.eascdn.net');
     const downloaded = await fetch(assetUrl, {
       signal: AbortSignal.timeout(30_000),
-      headers: downloadHeaders,
+      headers: { ...downloadHeaders, ...assetRequestHeaders[asset.key] },
     });
     if (downloaded.status !== 200) {
       const reason = (await downloaded.text()).replace(/<style[\s\S]*?<\/style>/gi, '')

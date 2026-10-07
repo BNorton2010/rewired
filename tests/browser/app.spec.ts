@@ -113,7 +113,7 @@ test('filled aurora flows rightward, idles, amplifies for playback and respects 
   await page.waitForTimeout(450); const after = await offset();
   expect(middle).toBeGreaterThan(before); expect(after).toBeGreaterThan(middle);
   const paths = page.getByTestId('playback-visualizer').locator('path');
-  expect(await paths.count()).toBe(6);
+  expect(await paths.count()).toBe(3);
   expect(await paths.first().getAttribute('fill')).toMatch(/^url\(/);
   expect(await paths.first().getAttribute('d')).toMatch(/Z$/);
 
@@ -121,6 +121,18 @@ test('filled aurora flows rightward, idles, amplifies for playback and respects 
   expect(new Set(gradientIds).size).toBe(gradientIds.length);
   const bounds = await page.getByTestId('playback-visualizer').boundingBox();
   expect(bounds?.x).toBe(0); expect(bounds?.width).toBe(page.viewportSize()!.width);
+  // Follow a complete cycle: movement stays rightward, with only the full-period
+  // reset allowed. Smaller negative steps would reveal the previous ping-pong motion.
+  let previous = await offset(); let wraps = 0;
+  for (let frame = 0; frame < 15; frame++) {
+    await page.waitForTimeout(1000);
+    const next = await offset(); const delta = next - previous;
+    if (delta < 0) { expect(delta).toBeLessThan(-bounds!.width * .7); wraps++; }
+    else expect(delta).toBeGreaterThan(0);
+    previous = next;
+  }
+  expect(wraps).toBeGreaterThanOrEqual(1);
+
   expect(await page.getByTestId('playback-visualizer').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   await page.getByTestId('player-toggle').click();
   await expect.poll(opacity).toBeLessThan(.14);

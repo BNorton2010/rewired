@@ -3,10 +3,10 @@ import { AccessibilityInfo, Animated, AppState, Easing, Platform, View } from 'r
 import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import { colors } from './theme';
 
-// Periodic filled ribbons meet at identical heights/slopes on both tile edges.
-// Translating two identical tiles rightward makes the loop reset invisible.
+// Two periods in one wide SVG avoid clipped edges between repeating ribbons.
+// Their identical heights/slopes make the rightward loop reset invisible.
 function ribbon(offset: number, thickness: number) {
-  const points = Array.from({ length: 121 }, (_, i) => {
+  const points = Array.from({ length: 241 }, (_, i) => {
     const t = i / 120 * Math.PI * 2;
     const center = 100 + 23 * Math.sin(t + offset) + 9 * Math.sin(2 * t + offset);
     const spread = thickness * (1 + .24 * Math.sin(t + offset + 1));
@@ -59,16 +59,16 @@ export function PlaybackVisualizer({ playing, compact = false }: { playing: bool
   return <View testID={compact ? 'mini-visualizer' : 'playback-visualizer'} onLayout={event => setTileWidth(event.nativeEvent.layout.width)} pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={compact ? { width: 32, height: 24, overflow: 'hidden' } : { position: 'absolute', left: 0, right: 0, top: '43%', height: 230, overflow: 'hidden' }}>
     <Animated.View testID={!compact ? 'waveform-intensity' : undefined} style={{ width: '100%', height: '100%', opacity: intensity.interpolate({ inputRange: [.28, 1], outputRange: [compact ? .35 : .13, compact ? .8 : .3] }), transform: [{ scaleY: intensity }] }}>
       <Animated.View testID={!compact ? 'playback-wave-0' : undefined} style={{ position: 'absolute', left: -tileWidth, width: tileWidth * 2, height: '100%', flexDirection: 'row', transform: [{ translateX: phase.interpolate({ inputRange: [0, 1], outputRange: [0, tileWidth] }) }] }}>
-        {[0, 1].map(tile => <Svg key={tile} width={tileWidth} height="100%" viewBox="0 0 1200 200" preserveAspectRatio="none">
-          <Defs>{ribbons.map((_, i) => <LinearGradient key={i} id={`wave-${id}-${tile}-${i}`} x1="0%" x2="0%" y1="0%" y2="100%">
+        <Svg width={tileWidth * 2} height="100%" viewBox="0 0 2400 200" preserveAspectRatio="none">
+          <Defs>{ribbons.map((_, i) => <LinearGradient key={i} id={`wave-${id}-${i}`} x1="0%" x2="0%" y1="0%" y2="100%">
             <Stop offset="0" stopColor={colors.teal} stopOpacity="0" />
             <Stop offset=".24" stopColor={colors.teal} stopOpacity=".25" />
             <Stop offset=".46" stopColor={i === 1 ? '#A48ADE' : colors.teal} stopOpacity=".9" />
             <Stop offset=".65" stopColor={i === 2 ? colors.gold : '#8874C9'} stopOpacity=".65" />
             <Stop offset="1" stopColor="#8874C9" stopOpacity="0" />
           </LinearGradient>)}</Defs>
-          {ribbons.map((d, i) => <Path key={i} d={d} fill={`url(#wave-${id}-${tile}-${i})`} opacity={i ? .65 : 1} />)}
-        </Svg>)}
+          {ribbons.map((d, i) => <Path key={i} d={d} fill={`url(#wave-${id}-${i})`} opacity={i ? .65 : 1} />)}
+        </Svg>
       </Animated.View>
     </Animated.View>
   </View>;

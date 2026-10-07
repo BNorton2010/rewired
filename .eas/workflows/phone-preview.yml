@@ -22,3 +22,14 @@ jobs:
           run: |
             npm run typecheck
             npm test
+
+  verify_ios_preview:
+    name: Verify published iOS bundle and audio files
+    needs: [publish_ios_preview]
+    environment: preview
+    env:
+      REWIRED_PREVIEW_UPDATES_JSON: ${{ needs.publish_ios_preview.outputs.updates_json }}
+    steps:
+      - uses: eas/checkout
+      - name: Download and check every published asset
+        run: node scripts/verify-expo-preview.mjs

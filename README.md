@@ -59,6 +59,8 @@ EAS Hosting is an alternative that supports a free account. Export a root-path w
 
 This route is intended for someone using only an iPhone. Install the latest Expo Go from the App Store; it must support **SDK 57**. A published Expo preview lets the phone download the app from Expo without a running cloud tunnel. It tests the native screens and foreground audio; it does not install this app's own background capabilities.
 
+Open **[the iPhone preview page](https://bnorton2010.github.io/rewired/phone-preview/)** in Safari. Sign into Expo Go as **`bnorton2010`**, return to that page, and tap **Open in Expo Go**. It also contains a QR for scanning from another screen. The preview is an immutable published snapshot, not a live connection to this cloud machine. `public/phone-preview/preview.json` records its update ID, SDK, deep link, and source commit. After publishing a new version, update that file, the page's button, and its QR to point to the same new iOS update; verify that the QR decodes to the exact deep link before republishing Pages.
+
 The connected Expo project can fetch this repository directly from GitHub. The manual-only workflow in `.eas/workflows/phone-preview.yml` publishes an iOS update to the isolated **`rewired-go-preview`** branch. It does not build an iOS binary, submit to the App Store, change existing production channels, or publish automatically on every commit. The account is on Expo's Free plan; no paid service or Apple Developer membership is required for this preview.
 
 After committing and pushing an authorized change to GitHub, run:
@@ -68,6 +70,15 @@ npx eas-cli@latest workflow:run .eas/workflows/phone-preview.yml --ref HEAD --no
 ```
 
 `--ref HEAD` asks Expo to fetch that exact GitHub commit rather than uploading this cloud workspace. Check the workflow's success and published update in [the Expo project](https://expo.dev/accounts/paid-to-bring-peace/projects/beau). Use the update's Expo Go preview link or QR after verifying its iOS manifest and assets. A QR must point to the native Expo Go preview; the GitHub Pages link opens the browser app. On an iPhone alone, use a tappable preview link or Expo's Preview button, since the Camera app cannot scan a QR displayed on the same screen. Physical iPhone compatibility and audio still require a device check.
+
+The workflow downloads the published manifest and all 46 files, checks their SHA-256 hashes, confirms the SDK and presence of three audio samples, and validates the Hermes bundle. Expo provides temporary per-asset authorization in the manifest's multipart `extensions` part; the verifier forwards those headers only to Expo's CDN and never prints or stores them. Plain downloads without these headers can return 403 even for a valid update. To check an existing update without publishing another one:
+
+```sh
+npx eas-cli@latest workflow:run .eas/workflows/check-phone-preview.yml --ref HEAD \
+  -F update_id=01a11410-f854-7f35-8de5-067fb976ff0b --non-interactive
+```
+
+Expo's Go-specific manifest requires sign-in with an account that belongs to `paid-to-bring-peace`; `bnorton2010` was verified as an owner. Do not embed an Expo token in the page, QR, app, or manifest URL. No visitor credential is sent to GitHub Pages. This cloud's personal token is scoped to Expo's API, so an authenticated Expo Go session still needs testing on the user's phone.
 
 The configured `expo-updates` dependency and `updates.url` connect hosted updates to this project. The `appVersion` runtime policy is Expo Go compatible on supported SDKs. When changing native dependencies or capabilities for this app's own builds, bump `expo.version` and rebuild; do not send incompatible updates to an existing native runtime.
 
@@ -188,6 +199,10 @@ Current cloud validation: a clean `npm ci` succeeded; TypeScript passed; all **7
 The cloud Expo CLI may report an optional React Native DevTools launch failure because its desktop sandbox helper cannot run here. The Metro server and web preview still run; use browser developer tools for the preview and native developer tools on your local development machine.
 
 Public preview validation: GitHub's Pages build and deployment succeeded. All 3 browser tests passed against the Pages build served locally at its `/rewired` base path. Verified HTTPS downloads of all 54 served app and route files matched that tested build byte for byte; main direct routes returned HTTP 200, and a sample audio byte-range request returned HTTP 206 with the correct bytes. Cloud Chromium could not run tests against the HTTPS site because it does not trust the environment's proxy certificate. Automatic approval review rejected adding that certificate to the browser's persistent trust store; no certificate checks were disabled. Hosted browser interaction therefore remains a manual check or a test on a normally configured local computer.
+
+Hosted iPhone preview validation: the GitHub-connected Expo workflow published iOS update `01a11410-f854-7f35-8de5-067fb976ff0b` to `rewired-go-preview`. Expo's verification run `01a11416-0c25-784c-991c-901a0c226646` completed successfully: all **46 native files**, including the Hermes bundle and **three audio samples**, downloaded with matching SHA-256 hashes (**14,769,260 bytes** total). The published sample hashes matched the original CC0 recordings. Expo's API confirms SDK 57 is the current stable Expo Go SDK. The QR independently decoded to the exact `exps://` update URL, including from a rendered 320px page with larger text. The launch page passed link, image-loading, reduced-motion, and no-overflow checks; all **3 app browser tests** passed again against the updated Pages build. These checks do not run the native app on an iPhone or test the user's signed-in Expo Go session; foreground native playback and the full device checklist remain physical-device checks.
+
+For future direct uploads from this cloud machine, saved environment network additions include Expo's manifest host (`u.expo.dev`), asset CDN (`assets.eascdn.net`), upload storage (`storage.googleapis.com` and `update-assets-upload-production.storage.googleapis.com`), and dashboard (`expo.dev`). A successful draft save does not apply or publish those settings: review/save them in environment settings, then publish the environment. The working GitHub-connected publication route avoids the blocked workspace upload; activating this draft is not a prerequisite for opening the existing phone preview.
 
 Official guidance consulted: [Expo Router installation](https://docs.expo.dev/router/installation/), [Expo Audio](https://docs.expo.dev/versions/latest/sdk/audio/), and [development builds](https://docs.expo.dev/develop/development-builds/introduction/), using their official `expo/expo` documentation source when this environment blocked the documentation site. Native versions were selected from SDK 57's bundled compatibility manifest and checked with `expo install --check`.
 

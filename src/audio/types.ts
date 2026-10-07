@@ -4,4 +4,6 @@ export type AudioContextValue = {
   error: string | null; finished: boolean; speed: number;
   playLesson: (lesson: Lesson) => void; toggle: () => void; seek: (seconds: number) => void;
   skip: (seconds: number) => void; changeSpeed: () => void; retry: () => void;
+  /** Optional native-only, sanitized local troubleshooting report. */
+  getPlaybackReport?: () => string;
 };

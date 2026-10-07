@@ -97,57 +97,62 @@ test('failed audio can be retried and rapid pause does not leave an unhandled pl
   expect(errors).toEqual([]);
 });
 
-test('filled aurora flows rightward, idles, amplifies for playback and respects reduced motion', async ({ page }) => {
+test('gold aurora changes shape, stays behind controls, idles and respects reduced motion', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
   await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('./');
   await page.getByTestId('finish-onboarding').click();
   await page.getByRole('button', { name: 'Start listening' }).click();
   await expect.poll(async () => page.getByTestId('audio-position').textContent()).not.toBe('0:00');
-  const wave = page.getByTestId('playback-wave-0');
-  const transform = () => wave.evaluate(node => getComputedStyle(node).transform);
+  const visualizer = page.getByTestId('playback-visualizer');
+  const paths = visualizer.locator('path[id*="-ribbon-"]');
+  const shape = () => paths.first().getAttribute('d');
   const opacity = () => page.getByTestId('waveform-intensity').evaluate(node => Number(getComputedStyle(node).opacity));
-  await expect.poll(opacity).toBeGreaterThan(.70);
-  const playing = await transform(); await expect.poll(transform).not.toBe(playing);
-  const offset = () => wave.evaluate(node => new DOMMatrixReadOnly(getComputedStyle(node).transform).m41);
-  const before = await offset();
-  await page.waitForTimeout(450); const middle = await offset();
-  await page.waitForTimeout(450); const after = await offset();
-  expect(middle).toBeGreaterThan(before); expect(after).toBeGreaterThan(middle);
-  const paths = page.getByTestId('playback-visualizer').locator('path[fill^="url("]');
-  expect(await paths.count()).toBeGreaterThanOrEqual(8);
-  expect(await paths.first().getAttribute('fill')).toMatch(/^url\(/);
-  expect(await paths.first().getAttribute('d')).toMatch(/Z$/);
+  await expect.poll(opacity).toBeGreaterThan(.23);
+  expect(await opacity()).toBeLessThanOrEqual(.25);
+  expect(await paths.count()).toBe(6);
+  const playing = await shape();
+  await expect.poll(shape).not.toBe(playing);
+  expect(playing).toMatch(/Z$/);
 
+  // The path itself evolves; the SVG isn't a static image translated across the page.
+  expect(await visualizer.locator('svg').evaluate(node => getComputedStyle(node).transform)).toBe('none');
+  const before = await shape();
+  await page.waitForTimeout(450);
+  const after = await shape();
+  expect(after).not.toBe(before);
+  const coordinates = (d: string) => d.match(/-?\d+(?:\.\d+)?/g)!.map(Number);
+  const a = coordinates(before!); const b = coordinates(after!);
+  const deltas = a.map((value, i) => b[i] - value).filter((_, i) => i % 2 === 1);
+  expect(Math.max(...deltas) - Math.min(...deltas)).toBeGreaterThan(1);
+  const bounds = await visualizer.boundingBox();
+  expect(bounds?.x).toBe(0); expect(bounds?.width).toBe(390);
+  expect(await visualizer.evaluate(node => getComputedStyle(node).pointerEvents)).toBe('none');
+  expect(await page.getByTestId('player-foreground').evaluate(node => Number(getComputedStyle(node).zIndex))).toBeGreaterThan(await visualizer.evaluate(node => Number(getComputedStyle(node).zIndex)));
+  const hitControl = await page.getByTestId('player-toggle').evaluate(node => {
+    const box = node.getBoundingClientRect();
+    return node.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2));
+  });
+  expect(hitControl).toBe(true);
   const gradientIds = await page.locator('linearGradient[id^="wave-"]').evaluateAll(nodes => nodes.map(node => node.id));
   expect(new Set(gradientIds).size).toBe(gradientIds.length);
-  const bounds = await page.getByTestId('playback-visualizer').boundingBox();
-  expect(bounds?.x).toBe(0); expect(bounds?.width).toBe(page.viewportSize()!.width);
-  // Follow a complete cycle: movement stays rightward, with only the full-period
-  // reset allowed. Smaller negative steps would reveal the previous ping-pong motion.
-  let previous = await offset(); let wraps = 0;
-  for (let frame = 0; frame < 15; frame++) {
-    await page.waitForTimeout(1000);
-    const next = await offset(); const delta = next - previous;
-    if (delta < 0) { expect(delta).toBeLessThan(-bounds!.width * .7); wraps++; }
-    else expect(delta).toBeGreaterThan(0);
-    previous = next;
-  }
-  expect(wraps).toBeGreaterThanOrEqual(1);
 
-  expect(await page.getByTestId('playback-visualizer').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
   await page.getByTestId('player-toggle').click();
-  await expect.poll(opacity).toBeLessThan(.30);
-  const idle = await transform(); await expect.poll(transform).not.toBe(idle);
-  // Reduce Motion stops the ambient idle animation too.
+  await expect.poll(opacity).toBeLessThan(.12);
+  const idle = await shape(); await expect.poll(shape).not.toBe(idle);
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.waitForTimeout(150);
-  const reducedIdle = await transform();
-  await page.waitForTimeout(400); expect(await transform()).toBe(reducedIdle);
+  await page.waitForTimeout(200);
+  const frozenIdle = await shape();
+  await page.waitForTimeout(400); expect(await shape()).toBe(frozenIdle);
   await page.getByTestId('player-toggle').click();
-  await expect.poll(opacity).toBeGreaterThan(.70);
-  const reducedPlaying = await transform();
-  await page.waitForTimeout(400); expect(await transform()).toBe(reducedPlaying);
-  await page.screenshot({ path: 'test-results/player-waveform.png', fullPage: true });
+  await expect.poll(opacity).toBeGreaterThan(.23);
+  await page.waitForTimeout(200);
+  const frozenPlaying = await shape();
+  await page.waitForTimeout(400); expect(await shape()).toBe(frozenPlaying);
+  await page.screenshot({ path: 'test-results/player-gold-aurora.png', fullPage: true });
+  expect(errors).toEqual([]);
 });
 
 test('bundled typography and artwork, player controls and large-text layouts remain usable on small screens', async ({ page }) => {
@@ -231,6 +236,48 @@ test('bundled typography and artwork, player controls and large-text layouts rem
       await expect(page.getByRole('button', { name: 'Day 14 completed', exact: true })).toBeVisible();
     }
   }
+  expect(errors).toEqual([]);
+});
+
+test('seeking holds the dragged position and commits on release, including track taps and outside release', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('./');
+  await page.getByTestId('finish-onboarding').click();
+  await page.getByRole('button', { name: 'Start listening', exact: true }).click();
+  await expect.poll(async () => page.getByTestId('audio-position').textContent()).not.toBe('0:00');
+  await page.getByTestId('player-toggle').click();
+  const slider = page.getByRole('slider', { name: 'Seek audio' });
+  await slider.fill('30');
+  await expect(page.getByTestId('audio-position')).toHaveText('0:30');
+  const bounds = (await slider.boundingBox())!;
+  const y = bounds.y + bounds.height / 2;
+  await page.mouse.move(bounds.x + bounds.width * .1, y);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + bounds.width * .7, y, { steps: 12 });
+  const heldValue = Number(await slider.inputValue());
+  expect(heldValue).toBeGreaterThan(200);
+  await page.waitForTimeout(600);
+  await expect(slider).toHaveValue(String(heldValue));
+  await expect(page.getByTestId('audio-position')).toHaveText('0:30');
+  await page.mouse.up();
+  await expect(page.getByTestId('audio-position')).not.toHaveText('0:30');
+  await expect(slider).toHaveValue(String(heldValue));
+  await page.mouse.click(bounds.x + bounds.width * .25, y);
+  expect(Number(await slider.inputValue())).toBeGreaterThan(60);
+  expect(Number(await slider.inputValue())).toBeLessThan(85);
+  await page.mouse.move(bounds.x + bounds.width * .25, y);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x - 100, y, { steps: 8 });
+  await page.mouse.up();
+  await expect(slider).toHaveValue('0');
+  await expect(page.getByTestId('audio-position')).toHaveText('0:00');
+  await slider.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(slider).toHaveValue('1');
+  await expect(page.getByTestId('audio-position')).toHaveText('0:01');
   expect(errors).toEqual([]);
 });
 

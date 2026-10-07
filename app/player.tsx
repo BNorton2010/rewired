@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Platform, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Platform, Pressable, ScrollView, Share, Text, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAudio } from '../src/audio/AudioProvider';
@@ -18,6 +18,7 @@ export default function PlayerScreen() {
   const store = useStore();
   const [showText, setShowText] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [scrubbing, setScrubbing] = useState(false);
   const [bodyTop, setBodyTop] = useState(320);
   const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -27,7 +28,7 @@ export default function PlayerScreen() {
   const artworkSize = wide ? 410 : Math.min(width - 64, 330, Math.max(190, (height - insets.top - insets.bottom) * .32));
   const auroraStyle = useMemo(() => ({ top: wide ? 40 : Math.max(0, bodyTop - 75), height: wide ? 440 : 360 + Math.max(0, fontScale - 1) * 80 }), [wide, bodyTop, fontScale]);
   return <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ alignItems: 'center', paddingTop: 8, paddingBottom: 24 }}>
+    <ScrollView keyboardShouldPersistTaps="handled" scrollEnabled={!scrubbing} canCancelContentTouches={false} directionalLockEnabled contentContainerStyle={{ alignItems: 'center', paddingTop: 8, paddingBottom: 24 }}>
       <View style={{ width: '100%', maxWidth: 1080, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <IconButton framed name="chevron-down" label="Close player" onPress={() => router.canGoBack() ? router.back() : router.replace('/')} />
         <Label style={{ color: colors.purple, fontSize: 9 }}>NOW PLAYING</Label>
@@ -35,7 +36,7 @@ export default function PlayerScreen() {
       </View>
       <View style={{ width: '100%', marginTop: wide ? 60 : 22, position: 'relative' }}>
         <PlaybackVisualizer playing={audio.playing && !audio.loading} style={auroraStyle} />
-        <View style={{ flexDirection: wide ? 'row' : 'column', gap: wide ? 66 : 23, maxWidth: 1000, width: '100%', alignSelf: 'center', alignItems: 'center', paddingHorizontal: wide ? 24 : 0 }}>
+        <View testID="player-foreground" style={{ position: 'relative', zIndex: 1, flexDirection: wide ? 'row' : 'column', gap: wide ? 66 : 23, maxWidth: 1000, width: '100%', alignSelf: 'center', alignItems: 'center', paddingHorizontal: wide ? 24 : 0 }}>
           <CosmicArt kind={lesson.artwork} orbit={lesson.artwork === 'sunrise'} style={{ width: artworkSize, height: artworkSize, borderRadius: 16, borderWidth: 1, borderColor: '#6A486C30' }} />
           <View onLayout={event => setBodyTop(event.nativeEvent.layout.y)} style={{ flex: wide ? 1 : undefined, gap: 18, maxWidth: 460, width: '100%', paddingHorizontal: wide ? 0 : 28 }}>
             <View style={{ gap: 8, alignItems: 'center' }}>
@@ -44,7 +45,7 @@ export default function PlayerScreen() {
               <Body style={{ fontSize: 13, lineHeight: 20, textAlign: 'center', color: '#D2C8DB' }}>Ambient sample + reflective text</Body>
             </View>
             <View style={{ marginTop: 0 }}>
-              <SeekBar position={audio.position} duration={audio.duration} onSeek={audio.seek} disabled={!audio.lesson || audio.loading} />
+              <SeekBar position={audio.position} duration={audio.duration} onSeek={audio.seek} onScrubbingChange={setScrubbing} disabled={!audio.lesson || audio.loading} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <Text testID="audio-position" style={{ color: colors.muted, fontFamily: fonts.body, fontVariant: ['tabular-nums'], fontSize: 11 }}>{formatTime(audio.position)}</Text>
                 <Text style={{ color: colors.muted, fontFamily: fonts.body, fontVariant: ['tabular-nums'], fontSize: 11 }}>{audio.duration ? formatTime(audio.duration) : `${lesson.minutes}:00`}</Text>
@@ -58,7 +59,13 @@ export default function PlayerScreen() {
               <Label style={{ fontSize: 8, letterSpacing: 1.4, textAlign: 'center' }}>ILLUSTRATIVE AUDIO SAMPLE</Label>
               <Pressable accessibilityRole="button" accessibilityLabel="Playback information" accessibilityState={{ expanded: showInfo }} onPress={() => setShowInfo(v => !v)} style={{ minHeight: 44, paddingHorizontal: 12, justifyContent: 'center' }}><Text style={{ color: colors.muted, fontFamily: fonts.body, fontSize: 10 }}>Playback information <Text style={{ color: colors.gold }}>↗</Text></Text></Pressable>
             </View>
-            {showInfo && <Body style={{ fontSize: 12, lineHeight: 20 }}>{Platform.OS === 'web' ? 'Browser preview: playback starts after a tap. Background audio and media controls depend on your browser and may stop when the tab sleeps. Use the native app to check screen-lock playback.' : 'Native demo: background audio and lock-screen controls are configured. Calls and disconnected headphones can pause playback. Tap play to resume when you are ready.'}</Body>}
+            {showInfo && <View style={{ gap: 12 }}>
+              <Body style={{ fontSize: 12, lineHeight: 20 }}>{Platform.OS === 'web' ? 'Browser preview: playback starts after a tap. Background audio and media controls depend on your browser and may stop when the tab sleeps. Use the native app to check screen-lock playback.' : 'Native demo: background audio and lock-screen controls are configured. Calls and disconnected headphones can pause playback. Tap play to resume when you are ready.'}</Body>
+              {audio.getPlaybackReport && <>
+                <Body style={{ fontSize: 12, lineHeight: 20 }}>If screen-lock playback stops, this report helps us check what happened. It contains recent playback events and app versions; no credentials or file addresses.</Body>
+                <Button title="Share playback report" secondary onPress={() => { void Share.share({ message: audio.getPlaybackReport!() }).catch(() => {}); }} />
+              </>}
+            </View>}
           </View>
         </View>
       </View>

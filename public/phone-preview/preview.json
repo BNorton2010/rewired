@@ -1,19 +1,19 @@
 {
   "projectId": "f824a207-b43d-4e95-9e57-f38e4a693d80",
-  "updateId": "01a1143f-a3dc-751c-bb53-951a91fb9b34",
-  "groupId": "dc5961e3-a4cd-4636-bd8a-1107c74cc8c6",
-  "expoGoUrl": "exps://u.expo.dev/update/01a1143f-a3dc-751c-bb53-951a91fb9b34",
+  "updateId": "01a1144b-3d36-7591-8840-cf16262ee25e",
+  "groupId": "6b6cdaf3-1054-4f24-acd2-62d41b483704",
+  "expoGoUrl": "exps://u.expo.dev/update/01a1144b-3d36-7591-8840-cf16262ee25e",
   "platform": "ios",
   "sdkVersion": "57.0.0",
-  "nativeSourceCommit": "1b3170e3aa27210297e873c7ac7ae8af8e8f6f25",
+  "nativeSourceCommit": "bb6139543dd3862843c9baabba6eff341a5ce965",
   "signInAccount": "bnorton2010",
   "content": "Illustrative local demo with original CC0 instrumental samples",
   "physicalDeviceTested": false,
   "downloadVerification": {
-    "workflowRunId": "01a1143e-58eb-7881-8ffc-9c8cf87859b4",
+    "workflowRunId": "01a11449-f810-73d2-aa07-c7570038ef62",
     "status": "SUCCESS",
     "verifiedAssets": 46,
     "verifiedAudioSamples": 3,
-    "verifiedBytes": 14776360
+    "verifiedBytes": 14777772
   }
 }

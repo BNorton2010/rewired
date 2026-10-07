@@ -18,7 +18,6 @@ export default function PlayerScreen() {
   const store = useStore();
   const [showText, setShowText] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
-  const [scrubbing, setScrubbing] = useState(false);
   const [bodyTop, setBodyTop] = useState(320);
   const { width, height, fontScale } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -28,7 +27,7 @@ export default function PlayerScreen() {
   const artworkSize = wide ? 410 : Math.min(width - 64, 330, Math.max(190, (height - insets.top - insets.bottom) * .32));
   const auroraStyle = useMemo(() => ({ top: wide ? 40 : Math.max(0, bodyTop - 75), height: wide ? 440 : 360 + Math.max(0, fontScale - 1) * 80 }), [wide, bodyTop, fontScale]);
   return <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }}>
-    <ScrollView keyboardShouldPersistTaps="handled" scrollEnabled={!scrubbing} canCancelContentTouches={false} directionalLockEnabled contentContainerStyle={{ alignItems: 'center', paddingTop: 8, paddingBottom: 24 }}>
+    <ScrollView testID="player-scroll" keyboardShouldPersistTaps="handled" directionalLockEnabled contentContainerStyle={{ alignItems: 'center', paddingTop: 8, paddingBottom: 24 }}>
       <View style={{ width: '100%', maxWidth: 1080, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
         <IconButton framed name="chevron-down" label="Close player" onPress={() => router.canGoBack() ? router.back() : router.replace('/')} />
         <Label style={{ color: colors.purple, fontSize: 9 }}>NOW PLAYING</Label>
@@ -45,7 +44,7 @@ export default function PlayerScreen() {
               <Body style={{ fontSize: 13, lineHeight: 20, textAlign: 'center', color: '#D2C8DB' }}>Ambient sample + reflective text</Body>
             </View>
             <View style={{ marginTop: 0 }}>
-              <SeekBar position={audio.position} duration={audio.duration} onSeek={audio.seek} onScrubbingChange={setScrubbing} disabled={!audio.lesson || audio.loading} />
+              <SeekBar position={audio.position} duration={audio.duration} onSeek={audio.seek} disabled={!audio.lesson || audio.loading} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <Text testID="audio-position" style={{ color: colors.muted, fontFamily: fonts.body, fontVariant: ['tabular-nums'], fontSize: 11 }}>{formatTime(audio.position)}</Text>
                 <Text style={{ color: colors.muted, fontFamily: fonts.body, fontVariant: ['tabular-nums'], fontSize: 11 }}>{audio.duration ? formatTime(audio.duration) : `${lesson.minutes}:00`}</Text>

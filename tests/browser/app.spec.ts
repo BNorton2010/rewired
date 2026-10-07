@@ -110,8 +110,8 @@ test('gold aurora changes shape, stays behind controls, idles and respects reduc
   const paths = visualizer.locator('path[id*="-ribbon-"]');
   const shape = () => paths.first().getAttribute('d');
   const opacity = () => page.getByTestId('waveform-intensity').evaluate(node => Number(getComputedStyle(node).opacity));
-  await expect.poll(opacity).toBeGreaterThan(.23);
-  expect(await opacity()).toBeLessThanOrEqual(.25);
+  await expect.poll(opacity).toBeGreaterThan(.54);
+  expect(await opacity()).toBeLessThanOrEqual(.57);
   expect(await paths.count()).toBe(6);
   const playing = await shape();
   await expect.poll(shape).not.toBe(playing);
@@ -140,14 +140,15 @@ test('gold aurora changes shape, stays behind controls, idles and respects reduc
   expect(new Set(gradientIds).size).toBe(gradientIds.length);
 
   await page.getByTestId('player-toggle').click();
-  await expect.poll(opacity).toBeLessThan(.12);
+  await expect.poll(opacity).toBeLessThan(.29);
+  expect(await opacity()).toBeGreaterThan(.25);
   const idle = await shape(); await expect.poll(shape).not.toBe(idle);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.waitForTimeout(200);
   const frozenIdle = await shape();
   await page.waitForTimeout(400); expect(await shape()).toBe(frozenIdle);
   await page.getByTestId('player-toggle').click();
-  await expect.poll(opacity).toBeGreaterThan(.23);
+  await expect.poll(opacity).toBeGreaterThan(.54);
   await page.waitForTimeout(200);
   const frozenPlaying = await shape();
   await page.waitForTimeout(400); expect(await shape()).toBe(frozenPlaying);

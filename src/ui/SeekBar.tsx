@@ -1,24 +1,22 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform, View } from 'react-native';
 import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from './theme';
 import { clampPosition, formatTime } from '../content/logic';
 import { seekInteraction, type SeekAction, type SeekInteraction } from './seekInteraction';
+import { createNativeSeekGesture } from './nativeSeekGesture';
 
 type Props = {
   position: number;
   duration: number;
   onSeek: (seconds: number) => void;
   disabled?: boolean;
-  onScrubbingChange?: (scrubbing: boolean) => void;
 };
 
-export function SeekBar({ position, duration, onSeek, disabled, onScrubbingChange }: Props) {
+export function SeekBar({ position, duration, onSeek, disabled }: Props) {
   const [interaction, setInteraction] = useState<SeekInteraction>({ phase: 'idle' });
   const interactionRef = useRef(interaction);
-  const onScrubbingRef = useRef(onScrubbingChange);
-  onScrubbingRef.current = onScrubbingChange;
   const [focused, setFocused] = useState(false);
   const unavailable = !!disabled || !Number.isFinite(duration) || duration <= 0;
   const transition = useCallback((action: SeekAction) => {
@@ -26,13 +24,15 @@ export function SeekBar({ position, duration, onSeek, disabled, onScrubbingChang
     const next = seekInteraction(previous, action);
     interactionRef.current = next;
     if (previous !== next) setInteraction(next);
-    if ((previous.phase === 'dragging') !== (next.phase === 'dragging')) {
-      onScrubbingRef.current?.(next.phase === 'dragging');
-    }
   }, []);
   const reset = useCallback(() => transition({ type: 'reset' }), [transition]);
+  const nativeGesture = useMemo(() => createNativeSeekGesture(() => {
+    if (interactionRef.current.phase === 'dragging') reset();
+  }), [reset]);
   useEffect(() => { transition({ type: 'position', value: position }); }, [position, transition]);
-  useEffect(() => { if (unavailable) reset(); }, [unavailable, reset]);
+  useEffect(() => {
+    if (unavailable) { nativeGesture.cancel(); reset(); }
+  }, [unavailable, reset, nativeGesture]);
   useEffect(() => {
     if (interaction.phase !== 'seeking') return;
     // A failed seek must not strand the thumb; normal 250 ms transport ticks acknowledge it first.
@@ -40,9 +40,14 @@ export function SeekBar({ position, duration, onSeek, disabled, onScrubbingChang
     return () => clearTimeout(timer);
   }, [interaction, reset]);
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', state => { if (state !== 'active') reset(); });
-    return () => { subscription.remove(); onScrubbingRef.current?.(false); };
-  }, [reset]);
+    const subscription = AppState.addEventListener('change', state => {
+      if (state !== 'active') { nativeGesture.cancel(); reset(); }
+    });
+    return () => {
+      subscription.remove();
+      nativeGesture.dispose();
+    };
+  }, [reset, nativeGesture]);
 
   const value = clampPosition(interaction.phase === 'idle' ? position : interaction.value, duration);
   const commit = (seconds: number) => {
@@ -80,7 +85,9 @@ export function SeekBar({ position, duration, onSeek, disabled, onScrubbingChang
       value={interaction.phase === 'dragging' ? interaction.nativeValue : value}
       disabled={unavailable} tapToSeek step={0} thumbSize={18}
       minimumTrackTintColor={colors.gold} maximumTrackTintColor="#493957" thumbTintColor={colors.gold}
-      onSlidingStart={begin} onValueChange={move} onSlidingComplete={commit}
+      onSlidingStart={seconds => { nativeGesture.start(); begin(seconds); }} onValueChange={move}
+      onSlidingComplete={seconds => nativeGesture.complete(() => commit(seconds))}
+      onTouchEnd={nativeGesture.end} onTouchCancel={nativeGesture.cancel} onResponderTerminate={nativeGesture.cancel}
     />
   </View>;
 
@@ -104,9 +111,10 @@ export function SeekBar({ position, duration, onSeek, disabled, onScrubbingChang
       },
       onPointerUp: () => { if (interactionRef.current.phase === 'dragging') commit(interactionRef.current.value); },
       onPointerCancel: reset,
+      onLostPointerCapture: () => { if (interactionRef.current.phase === 'dragging') reset(); },
       onFocus: () => setFocused(true),
       onBlur: () => { setFocused(false); if (interactionRef.current.phase === 'dragging') reset(); },
-      style: { position: 'absolute', width: '100%', height: 44, opacity: .01, cursor: unavailable ? 'default' : 'pointer', margin: 0, touchAction: 'none' },
+      style: { position: 'absolute', width: '100%', height: 44, opacity: .01, cursor: unavailable ? 'default' : 'pointer', margin: 0, touchAction: 'pan-y' },
     })}
   </View>;
 }

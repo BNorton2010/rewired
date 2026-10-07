@@ -50,7 +50,9 @@ export const PlaybackVisualizer = React.memo(function PlaybackVisualizer({ playi
     energy.value = withTiming(playing ? 1 : .2, { duration: reduceMotion ? 0 : 1400, easing: Easing.inOut(Easing.quad) });
     tempo.value = withTiming(playing ? 10000 : 26000, { duration: reduceMotion ? 0 : 1000 });
   }, [playing, reduceMotion, energy, tempo]);
-  const intensity = useAnimatedStyle(() => ({ opacity: compact ? .2 + .45 * energy.value : .08 + .16 * energy.value }));
+  // Individual ribbons already have soft, transparent gradients. Keep the
+  // full-width layer visible rather than dimming it a second time into black.
+  const intensity = useAnimatedStyle(() => ({ opacity: compact ? .2 + .45 * energy.value : .2 + .36 * energy.value }));
   return <View testID={compact ? 'mini-visualizer' : 'playback-visualizer'} pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={[compact ? { width: 28, height: 22, overflow: 'hidden' } : { position: 'absolute', left: 0, right: 0, top: 0, height: 380, overflow: 'hidden', zIndex: 0 }, style]}>
     <Animated.View testID={!compact ? 'waveform-intensity' : undefined} style={[{ width: '100%', height: '100%' }, intensity]}>
       <Svg width="100%" height="100%" viewBox={`0 0 ${AURORA_WIDTH} ${AURORA_HEIGHT}`} preserveAspectRatio="none">

@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useAudio } from '../audio/AudioProvider';
 import { colors } from './theme';
 import { CosmicArt } from './CosmicArt';
+import { PlaybackVisualizer } from './PlaybackVisualizer';
 import { IconButton } from './components';
 export function MiniPlayer() {
   const audio = useAudio();
@@ -14,7 +15,8 @@ export function MiniPlayer() {
         <CosmicArt kind={audio.lesson.artwork} style={{ height: 46, width: 46, borderRadius: 9 }} />
         <View style={{ flex: 1, gap: 4 }}><Text numberOfLines={1} style={{ color: colors.ink, fontWeight: '700', fontSize: 14 }}>{audio.lesson.title}</Text><Text style={{ color: colors.muted, fontSize: 11 }}>{audio.error ? 'Playback error · open player' : audio.loading ? 'Loading sample…' : audio.finished ? 'Practice complete' : `${audio.playing ? 'Playing' : 'Paused'} · ${audio.lesson.minutes} min · Demo sample`}</Text></View>
       </Pressable>
-      <IconButton name={audio.playing ? 'pause' : 'play'} label={audio.playing ? 'Pause audio' : 'Play audio'} color={colors.gold} onPress={audio.toggle} />
+      <PlaybackVisualizer compact playing={audio.playing && !audio.loading} />
+      <IconButton name={audio.playing || audio.starting ? 'pause' : 'play'} label={audio.playing || audio.starting ? 'Pause audio' : 'Play audio'} color={colors.gold} onPress={audio.toggle} />
     </View>
     <View style={{ height: 2, backgroundColor: colors.line, marginTop: 8 }}><View style={{ height: 2, width: `${Math.min(100, audio.duration ? audio.position / audio.duration * 100 : 0)}%`, backgroundColor: colors.gold }} /></View>
   </View>;

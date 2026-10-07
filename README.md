@@ -57,7 +57,7 @@ EAS Hosting is an alternative that supports a free account. Export a root-path w
 
 ### Hosted iPhone preview with Expo and GitHub
 
-This route is intended for someone using only an iPhone. Install the latest Expo Go from the App Store; it must support **SDK 57**. A published Expo preview lets the phone download the app from Expo without a running cloud tunnel. It tests the native screens and foreground audio; it does not install this app's own background capabilities.
+This route is intended for someone using only an iPhone. Install the latest Expo Go from the App Store; it must support **SDK 57**. A published Expo preview lets the phone download the app from Expo without a running cloud tunnel. It tests native screens and audio. SDK 57 iOS Expo Go already includes the audio background mode, so screen-lock playback can be checked there; it does not install this app's own native configuration.
 
 Open **[the iPhone preview page](https://bnorton2010.github.io/rewired/phone-preview/)** in Safari. Sign into Expo Go as **`bnorton2010`**, return to that page, and tap **Open in Expo Go**. It also contains a QR for scanning from another screen. The preview is an immutable published snapshot, not a live connection to this cloud machine. `public/phone-preview/preview.json` records its update ID, SDK, deep link, and source commit. After publishing a new version, update that file, the page's button, and its QR to point to the same new iOS update; verify that the QR decodes to the exact deep link before republishing Pages.
 
@@ -104,7 +104,9 @@ For `expo login`, use the same Expo account as on the iPhone. [Expo requires mat
 
 ### Native background audio and lock-screen controls
 
-Use a **development build** to test this app's own native configuration. On a **Mac** with current Xcode, command-line tools, CocoaPods, and a connected iPhone with Developer Mode enabled:
+First test the hosted update in iOS Expo Go: start a practice, lock the phone for at least a minute, and try Control Center play/pause and seeking. SDK 57 Expo Go already includes `UIBackgroundModes: audio` ([official container configuration](https://github.com/expo/expo/blob/sdk-57/apps/expo-go/ios/Exponent/Supporting/Info.plist)). The player caches the sample before playing, restores position before autoplay, and keeps the native session available through track changes and lock-screen pauses. The visualizer stops drawing in the background without pausing audio. This fixes identified startup/session races; physical iPhone behavior still requires testing.
+
+Use a **development build** to validate this app's own native configuration before release. On a **Mac** with current Xcode, command-line tools, CocoaPods, and a connected iPhone with Developer Mode enabled:
 
 ```sh
 npm ci
@@ -126,8 +128,8 @@ Open the installed Re-Wired FM development app and connect to this server. Rebui
 | Screens, onboarding, search, favorites, path | Expo Go and web can test | Works; validate native layout too |
 | Play/pause, seek, ±15 seconds, playback speed | Foreground controls can be tested | Native Expo Audio transport |
 | Saved preferences and positions | Local to each browser/install | Local to this app install |
-| This app's iOS background-audio capability | Expo Go does not apply this app's config plugin; web follows browser rules | **Required** to validate screen-lock and background behavior |
-| Native lock-screen / Control Center controls | Browser support varies; no guarantee | **Required** to validate controls and metadata |
+| This app's iOS background-audio capability | iOS SDK 57 Expo Go has its own audio background mode; test screen lock there. Web follows browser rules | **Required** to validate this app's own native capability before release |
+| Native lock-screen / Control Center controls | Test iOS Expo Go on the phone; browser support varies | Validate production controls and metadata on a device |
 | Android sustained background playback / media service | Expo Go does not apply this app's manifest | **Required**; test with `npx expo run:android --device` on an Android development machine |
 
 Device checklist: listen with the screen locked and app backgrounded; try lock-screen play/pause, seeking, and metadata; make or receive a call; unplug headphones and disconnect Bluetooth; manually resume; finish a session; kill/reopen the app and check the paused restored position; try large Dynamic Type, VoiceOver, Reduce Motion, and Android TalkBack. Confirm Android background audio lasts beyond three minutes. The app does not request microphone permissions.
@@ -140,7 +142,7 @@ Device checklist: listen with the screen locked and app backgrounded; try lock-s
 - A 14-day journey with local progress. Listening to the end marks the lesson practiced and completes the next matching path day; a circle lets you self-report another practiced day. There are no psychological scores, locked days, promised outcomes, or streak penalties.
 - A single persistent player across the main screens, with play/pause, actual duration, seeking, ±15-second controls, speed, errors/retry, completion, and saved listening position. Restored sessions begin paused.
 - Native Expo Audio session uses `playsInSilentMode`, `shouldPlayInBackground`, and `doNotMix`. `expo-audio`'s config plugin enables the iOS audio background mode and Android media playback service. Lock-screen controls are registered with title and demo metadata. Native OS interruptions and headset disconnection can pause playback; users choose when to resume.
-- Responsive safe-area layouts, readable off-white text, gold controls, and original static cosmic vector art. Static art and disabled navigation animations respect reduced motion. System fonts retain platform text scaling; native accessibility still requires device testing.
+- Responsive safe-area layouts, readable off-white text, gold controls, and original static cosmic vector art. A gold-and-teal decorative waveform moves during playback in the full and mini players; it rests when paused, stops drawing in the background, and stays still with Reduce Motion. It is a visual rhythm, not frequency analysis. Static art and disabled navigation animations respect reduced motion. System fonts retain platform text scaling; native accessibility still requires device testing.
 
 ## Content and licensing
 
@@ -164,7 +166,8 @@ app/                        Expo Router screens and navigation
   player.tsx                Full player controls
   onboarding.tsx            Initial and editable preferences
 src/audio/                  Platform transports and replaceable audio sources
-  AudioProvider.tsx         Native Expo Audio session, interruptions and lock screen
+  AudioProvider.tsx         Native Expo Audio session, cached sources and lock screen
+  nativePreparation.ts      Cancellable load → restore seek → playback-rate preparation
   AudioProvider.web.tsx     Browser HTMLAudioElement with explicit play/error handling
 src/content/                Catalog, recommendation, search, and path logic
 src/persistence/            AsyncStorage, versioned local state, ordered writes
@@ -207,3 +210,9 @@ For future direct uploads from this cloud machine, saved environment network add
 Official guidance consulted: [Expo Router installation](https://docs.expo.dev/router/installation/), [Expo Audio](https://docs.expo.dev/versions/latest/sdk/audio/), and [development builds](https://docs.expo.dev/develop/development-builds/introduction/), using their official `expo/expo` documentation source when this environment blocked the documentation site. Native versions were selected from SDK 57's bundled compatibility manifest and checked with `expo install --check`.
 
 Next steps: replace sample recordings and validate content; run native device checks; refine accessibility with users; then design purchase verification and hosted-content delivery as separate milestones.
+
+## Playback reliability update
+
+Native samples are downloaded to the asset cache before playback. Source readiness and the saved-position seek must finish before play; cancelled requests cannot start an earlier lesson. The native player keeps its audio session active so the SDK's delayed pause cleanup cannot deactivate a newly buffering track, and lock-screen metadata is updated without repeatedly registering remote commands. Audio mode configuration errors surface for retry. Calls and headphone disconnection remain OS-managed interruptions; the app does not automatically restart interrupted audio. The selected session remains available while paused for lock-screen resume. Browser play promises ignore superseded requests.
+
+Validation adds cancellation, readiness/seek ordering, end-position and decoder-failure unit coverage, plus browser checks for moving, paused and reduced-motion waveforms. Hardware screen-lock, remote commands, Bluetooth and phone-call behavior must be checked on an iPhone; passing browser and configuration checks cannot prove those behaviors.

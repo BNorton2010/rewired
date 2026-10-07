@@ -20,6 +20,8 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
   const lastSavedAt = useRef(0);
   const loadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [lesson, setLesson] = useState<Lesson>();
+  const playRequest = useRef(0);
+  const [starting, setStarting] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [position, setPosition] = useState(0);
@@ -40,8 +42,8 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
       setPosition(media.currentTime);
     };
     media.oncanplay = clearLoading;
-    media.onplaying = () => { setPlaying(true); setError(null); clearLoading(); };
-    media.onpause = () => { setPlaying(false); persist(); };
+    media.onplaying = () => { setPlaying(true); setStarting(false); setError(null); clearLoading(); };
+    media.onpause = () => { setStarting(false); setPlaying(false); persist(); };
     media.onwaiting = () => setLoading(true);
     media.onseeked = () => { setPosition(media.currentTime); persist(); };
     media.ontimeupdate = () => {
@@ -53,7 +55,7 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
       completed.current = true; setPlaying(false); setFinished(true); clearLoading();
       storeRef.current.complete(selected.current.id);
     };
-    media.onerror = () => { setPlaying(false); clearLoading(); setError('The audio sample could not be loaded. Check your connection to the development server and retry.'); };
+    media.onerror = () => { setStarting(false); setPlaying(false); clearLoading(); setError('The audio sample could not be loaded. Check your connection to the development server and retry.'); };
     window.addEventListener('pagehide', persist);
     const visibility = () => { if (document.hidden) persist(); };
     document.addEventListener('visibilitychange', visibility);
@@ -66,10 +68,13 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
   const start = useCallback(() => {
     const media = mediaRef.current;
     if (!media) return;
-    setError(null);
+    setError(null); setStarting(true);
+    const attempt = ++playRequest.current;
     // Catch only this player's promise. AbortError is expected if the user pauses
     // or chooses a different sample before the previous play request resolves.
     void media.play().catch((failure: unknown) => {
+      if (attempt !== playRequest.current) return;
+      setStarting(false);
       if (failure instanceof DOMException && failure.name === 'AbortError') return;
       setPlaying(false); setLoading(false);
       setError(failure instanceof DOMException && failure.name === 'NotAllowedError' ? 'Your browser blocked playback. Tap play to start the sample.' : 'Playback could not start. Please retry the sample.');
@@ -78,7 +83,7 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
   const load = useCallback((item: Lesson, autoplay: boolean) => {
     const media = mediaRef.current;
     if (!media) return;
-    persist(); media.pause();
+    playRequest.current++; setStarting(false); persist(); media.pause();
     selected.current = item; setLesson(item); setError(null); setLoading(true); setPlaying(false);
     completed.current = false;
     const saved = storeRef.current.state.positions[item.id] ?? 0;
@@ -110,9 +115,9 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
     const media = mediaRef.current;
     if (!media || !selected.current) return;
     if (error) { load(selected.current, true); return; }
-    if (!media.paused) { media.pause(); persist(); }
+    if (!media.paused || starting) { playRequest.current++; setStarting(false); media.pause(); persist(); }
     else { if (media.ended || completed.current) seek(0); setFinished(false); start(); }
-  }, [error, load, persist, seek, start]);
+  }, [error, starting, load, persist, seek, start]);
   const playLesson = useCallback((item: Lesson) => {
     if (selected.current?.id === item.id) { if (mediaRef.current?.paused) toggle(); }
     else load(item, true);
@@ -123,7 +128,7 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
     if (mediaRef.current) mediaRef.current.playbackRate = speed;
     storeRef.current.setSpeed(speed);
   }, []);
-  return <Context.Provider value={{ lesson, playing, loading, position, duration, error, finished, speed: store.state.speed, playLesson, toggle, seek, skip: seconds => seek((mediaRef.current?.currentTime ?? 0) + seconds), changeSpeed, retry: () => { if (selected.current) load(selected.current, true); } }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ lesson, playing, starting, loading, position, duration, error, finished, speed: store.state.speed, playLesson, toggle, seek, skip: seconds => seek((mediaRef.current?.currentTime ?? 0) + seconds), changeSpeed, retry: () => { if (selected.current) load(selected.current, true); } }}>{children}</Context.Provider>;
 }
 export function useAudio() {
   const audio = useContext(Context);

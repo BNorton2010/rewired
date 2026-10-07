@@ -15,15 +15,22 @@ assert(update, 'Provide a published iOS update ID or the publish job output.');
 const url = new URL(update.manifestPermalink);
 assert.equal(url.origin, 'https://u.expo.dev');
 assert.equal(url.pathname, `/update/${update.id}`);
+// Match Expo Updates' native download headers. Use one fixed verification-client
+// identifier so repeated CI checks do not count as new devices.
+const downloadHeaders = {
+  'Expo-Platform': 'ios',
+  'Expo-Protocol-Version': '1',
+  'Expo-API-Version': '1',
+  'Expo-Updates-Environment': 'BARE',
+  'Expo-Runtime-Version': update.runtimeVersion,
+  'EAS-Client-ID': 'b4f25cb0-28ac-478b-904d-2159d8c37371',
+};
 
 const response = await fetch(url, {
   signal: AbortSignal.timeout(30_000),
   headers: {
+    ...downloadHeaders,
     Accept: 'multipart/mixed,application/expo+json,application/json',
-    'Expo-Platform': 'ios',
-    'Expo-Protocol-Version': '1',
-    'Expo-Updates-Environment': 'BARE',
-    'Expo-Runtime-Version': update.runtimeVersion,
   },
 });
 assert.equal(response.status, 200, 'Published iOS manifest must be downloadable.');
@@ -55,15 +62,11 @@ for (let offset = 0; offset < assets.length; offset += 4) {
     assert.equal(assetUrl.origin, 'https://assets.eascdn.net');
     const downloaded = await fetch(assetUrl, {
       signal: AbortSignal.timeout(30_000),
-      headers: {
-        'Expo-Platform': 'ios',
-        'Expo-Protocol-Version': '1',
-        'Expo-Updates-Environment': 'BARE',
-        'Expo-Runtime-Version': update.runtimeVersion,
-      },
+      headers: downloadHeaders,
     });
     if (downloaded.status !== 200) {
-      const reason = (await downloaded.text()).slice(0, 500);
+      const reason = (await downloaded.text()).replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1000);
       throw new Error(`Published ${asset.contentType} asset returned ${downloaded.status}: ${reason}`);
     }
     const data = Buffer.from(await downloaded.arrayBuffer());

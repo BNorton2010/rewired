@@ -1,0 +1,19 @@
+{
+  "projectId": "f824a207-b43d-4e95-9e57-f38e4a693d80",
+  "updateId": "01a11410-f854-7f35-8de5-067fb976ff0b",
+  "groupId": "2bb168cd-20c8-41f2-b3da-9eb47f99dd2b",
+  "expoGoUrl": "exps://u.expo.dev/update/01a11410-f854-7f35-8de5-067fb976ff0b",
+  "platform": "ios",
+  "sdkVersion": "57.0.0",
+  "nativeSourceCommit": "95241dc1d9d0060ed0ca5a49b749feeb42985e12",
+  "signInAccount": "bnorton2010",
+  "content": "Illustrative local demo with original CC0 instrumental samples",
+  "physicalDeviceTested": false,
+  "downloadVerification": {
+    "workflowRunId": "01a11416-0c25-784c-991c-901a0c226646",
+    "status": "SUCCESS",
+    "verifiedAssets": 46,
+    "verifiedAudioSamples": 3,
+    "verifiedBytes": 14769260
+  }
+}

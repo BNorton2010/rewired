@@ -1,11 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, AppState, Easing, Platform, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import { colors } from './theme';
-import { Label } from './components';
 
-/** Decorative rhythm, not a measured representation of the sample's frequencies. */
+// A decorative, continuous wave; it does not claim to measure the sample's frequencies.
+function wave(offset: number) {
+  return Array.from({ length: 201 }, (_, i) => {
+    const x = i * 6;
+    const envelope = .25 + .75 * Math.sin(Math.PI * i / 200) ** 2;
+    const y = 100 + envelope * (30 * Math.sin(i * .16 + offset) + 12 * Math.sin(i * .31 + offset));
+    return `${i ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+}
+const paths = [wave(0), wave(1.4), wave(2.8)];
 export function PlaybackVisualizer({ playing, compact = false }: { playing: boolean; compact?: boolean }) {
   const phase = useRef(new Animated.Value(0)).current;
+  const intensity = useRef(new Animated.Value(playing ? 1 : .28)).current;
   const [reduceMotion, setReduceMotion] = useState(true);
   const [active, setActive] = useState(AppState.currentState === 'active');
   useEffect(() => {
@@ -16,19 +26,26 @@ export function PlaybackVisualizer({ playing, compact = false }: { playing: bool
     return () => { mounted = false; motion.remove(); app.remove(); };
   }, []);
   useEffect(() => {
-    if (!playing || reduceMotion || !active) { phase.setValue(0); return; }
-    const loop = Animated.loop(Animated.timing(phase, { toValue: 1, duration: 3200, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web', isInteraction: false }));
+    if (reduceMotion || !active) { phase.setValue(0); return; }
+    const loop = Animated.loop(Animated.timing(phase, { toValue: 1, duration: playing ? 7000 : 16000, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web', isInteraction: false }));
     loop.start(); return () => { loop.stop(); phase.setValue(0); };
   }, [playing, reduceMotion, active, phase]);
-  const bars = compact ? 8 : 32;
-  return <View testID={compact ? 'mini-visualizer' : 'playback-visualizer'} style={compact ? { width: 32 } : { padding: 16, borderRadius: 20, backgroundColor: '#101A2B', borderColor: '#293A49', borderWidth: 1, overflow: 'hidden', gap: 10 }}>
-    {!compact && <Label style={{ color: playing ? colors.teal : colors.muted, fontSize: 10 }}>{playing ? 'IN THE FLOW' : 'YOUR DAILY FREQUENCY'}</Label>}
-    <View accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={{ height: compact ? 24 : 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: compact ? 2 : 4 }}>
-      {Array.from({ length: bars }, (_, i) => {
-        const height = compact ? 22 : 24 + 20 * Math.sin(Math.PI * (i + 1) / (bars + 1));
-        const low = .22 + (i % 4) * .07;
-        return <Animated.View key={i} testID={!compact && i === 0 ? 'playback-bar-0' : undefined} style={{ flex: 1, maxWidth: compact ? 3 : 5, height, borderRadius: 4, backgroundColor: i % 5 < 2 ? colors.teal : colors.gold, opacity: playing ? .85 : .4, transform: [{ scaleY: phase.interpolate({ inputRange: [0, .25, .5, .75, 1], outputRange: [low, .55 + (i % 3) * .15, .28 + (i % 5) * .12, .9 - (i % 4) * .12, low] }) }] }} />;
-      })}
-    </View>
+  useEffect(() => {
+    const animation = Animated.timing(intensity, { toValue: playing ? 1 : .28, duration: reduceMotion ? 0 : 1000, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== 'web', isInteraction: false });
+    animation.start(); return () => animation.stop();
+  }, [playing, reduceMotion, intensity]);
+  return <View testID={compact ? 'mini-visualizer' : 'playback-visualizer'} pointerEvents="none" accessible={false} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={compact ? { width: 32, height: 24, overflow: 'hidden' } : { position: 'absolute', left: 0, right: 0, top: '43%', height: 230, overflow: 'hidden' }}>
+    <Animated.View testID={!compact ? 'waveform-intensity' : undefined} style={{ width: '100%', height: '100%', opacity: intensity.interpolate({ inputRange: [.28, 1], outputRange: [compact ? .35 : .13, compact ? .8 : .3] }), transform: [{ scaleY: intensity }] }}>
+      {paths.map((d, i) => <Animated.View key={i} testID={!compact && i === 0 ? 'playback-wave-0' : undefined} style={{ position: 'absolute', width: '130%', left: '-15%', height: '100%', opacity: i ? .55 : 1, transform: [
+        { translateX: phase.interpolate({ inputRange: [0, .25, .5, .75, 1], outputRange: [0, i % 2 ? -22 : 22, 0, i % 2 ? 22 : -22, 0] }) },
+        { scaleY: phase.interpolate({ inputRange: [0, .25, .5, .75, 1], outputRange: [1, 1.2 + i * .1, 1, .75 - i * .05, 1] }) },
+      ] }}>
+        <Svg width="100%" height="100%" viewBox="0 0 1200 200" preserveAspectRatio="none">
+          <Defs><LinearGradient id={`wave-${i}`} x1="0" x2="1" y1="0" y2="0"><Stop offset="0" stopColor={colors.teal} stopOpacity="0" /><Stop offset=".25" stopColor={colors.teal} /><Stop offset=".65" stopColor={colors.gold} /><Stop offset="1" stopColor={colors.gold} stopOpacity="0" /></LinearGradient></Defs>
+          {!compact && <Path d={d} stroke={`url(#wave-${i})`} strokeWidth="12" opacity=".08" fill="none" />}
+          <Path d={d} stroke={`url(#wave-${i})`} strokeWidth={compact ? 6 : i ? 1.5 : 2.2} fill="none" />
+        </Svg>
+      </Animated.View>)}
+    </Animated.View>
   </View>;
 }

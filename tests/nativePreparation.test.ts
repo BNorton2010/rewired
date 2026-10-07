@@ -55,3 +55,21 @@ test('native decoder failures reject preparation without seeking', async () => {
   for (const listener of f.listeners) listener({ isLoaded: false, error: 'decoder failure' });
   await rejected; assert.equal(f.calls.length, 1); assert.equal(f.listeners.size, 0);
 });
+
+// React Native 0.86 installs this exact shim in Libraries/Core/setUpXHR.js.
+// Node's global signal has newer methods that the phone's signal does not have.
+test('preparation works with React Native’s AbortController shim', async () => {
+  const { AbortController: NativeAbortController } = await import('abort-controller');
+  const controller = new NativeAbortController();
+  const f = fixture(); Object.assign(f.player, { isLoaded: true }); f.seek.resolve();
+  await prepareNativePlayback(f.player, { source: async () => ({ uri: 'file:///sample.mp3' }), position: 12, speed: () => 1, signal: controller.signal as unknown as AbortSignal });
+  assert.deepEqual(f.calls[1], ['seek', 12]);
+});
+
+test('React Native cancellation removes the subscription and rejects with an AbortError', async () => {
+  const { AbortController: NativeAbortController } = await import('abort-controller');
+  const f = fixture(), controller = new NativeAbortController();
+  const task = prepareNativePlayback(f.player, { source: async () => ({ uri: 'file:///sample.mp3' }), position: 0, speed: () => 1, signal: controller.signal as unknown as AbortSignal });
+  await tick(); const rejected = assert.rejects(task, { name: 'AbortError' });
+  controller.abort(); await rejected; assert.equal(f.listeners.size, 0);
+});

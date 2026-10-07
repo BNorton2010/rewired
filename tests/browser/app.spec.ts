@@ -96,25 +96,31 @@ test('failed audio can be retried and rapid pause does not leave an unhandled pl
   expect(errors).toEqual([]);
 });
 
-test('waveform moves only during playback and respects reduced motion', async ({ page }) => {
+test('transparent full-width waveform idles, amplifies for playback and respects reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('./');
   await page.getByTestId('finish-onboarding').click();
   await page.getByRole('button', { name: 'Play today’s practice' }).click();
-  await expect(page.getByText('IN THE FLOW', { exact: true })).toBeVisible();
-  const bar = page.getByTestId('playback-bar-0');
-  const transform = () => bar.evaluate(node => getComputedStyle(node).transform);
-  const first = await transform();
-  await expect.poll(transform).not.toBe(first);
-  await page.getByTestId('player-toggle').click();
-  await expect(page.getByText('YOUR DAILY FREQUENCY', { exact: true })).toBeVisible();
-  const resting = await transform();
-  await page.waitForTimeout(400); expect(await transform()).toBe(resting);
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.getByTestId('player-toggle').click();
-  await expect(page.getByText('IN THE FLOW', { exact: true })).toBeVisible();
-  const reduced = await transform();
-  await page.waitForTimeout(400); expect(await transform()).toBe(reduced);
   await expect.poll(async () => page.getByTestId('audio-position').textContent()).not.toBe('0:00');
+  const wave = page.getByTestId('playback-wave-0');
+  const transform = () => wave.evaluate(node => getComputedStyle(node).transform);
+  const opacity = () => page.getByTestId('waveform-intensity').evaluate(node => Number(getComputedStyle(node).opacity));
+  await expect.poll(opacity).toBeGreaterThan(.29);
+  const playing = await transform(); await expect.poll(transform).not.toBe(playing);
+  const bounds = await page.getByTestId('playback-visualizer').boundingBox();
+  expect(bounds?.x).toBe(0); expect(bounds?.width).toBe(page.viewportSize()!.width);
+  expect(await page.getByTestId('playback-visualizer').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  await page.getByTestId('player-toggle').click();
+  await expect.poll(opacity).toBeLessThan(.14);
+  const idle = await transform(); await expect.poll(transform).not.toBe(idle);
+  // Reduce Motion stops the ambient idle animation too.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForTimeout(150);
+  const reducedIdle = await transform();
+  await page.waitForTimeout(400); expect(await transform()).toBe(reducedIdle);
+  await page.getByTestId('player-toggle').click();
+  await expect.poll(opacity).toBeGreaterThan(.29);
+  const reducedPlaying = await transform();
+  await page.waitForTimeout(400); expect(await transform()).toBe(reducedPlaying);
   await page.screenshot({ path: 'test-results/player-waveform.png', fullPage: true });
 });

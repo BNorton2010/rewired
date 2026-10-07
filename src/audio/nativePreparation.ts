@@ -10,16 +10,18 @@ export interface PreparationPlayer {
 export async function prepareNativePlayback(player: PreparationPlayer, options: {
   source: () => Promise<{ uri: string }>; position: number; speed: () => number; signal: AbortSignal;
 }) {
-  const check = () => options.signal.throwIfAborted();
+  // React Native's AbortSignal shim has neither throwIfAborted() nor reason.
+  const cancelled = () => Object.assign(new Error('Playback preparation cancelled'), { name: 'AbortError' });
+  const check = () => { if (options.signal.aborted) throw cancelled(); };
   const source = await options.source(); check();
   player.replace(source);
   await new Promise<void>((resolve, reject) => {
     if (player.isLoaded) { resolve(); return; }
     const cleanup = () => { subscription.remove(); options.signal.removeEventListener('abort', abort); };
-    const abort = () => { cleanup(); reject(options.signal.reason); };
+    const abort = () => { cleanup(); reject(cancelled()); };
     const subscription = player.addListener('playbackStatusUpdate', status => {
       if (status.error) { cleanup(); reject(new Error(status.error)); }
-      else if (status.isLoaded) { cleanup(); resolve(); }
+      else if (status.isLoaded && player.isLoaded) { cleanup(); resolve(); }
     });
     options.signal.addEventListener('abort', abort, { once: true });
     if (options.signal.aborted) abort();

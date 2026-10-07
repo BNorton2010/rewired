@@ -31,23 +31,25 @@ To create and serve a new preview from the full source project, run `npm run bui
 
 ## Publish a public browser preview
 
-The source repository is `BNorton2010/rewired`. GitHub Pages can serve a free public browser preview from its `gh-pages` branch. Build and publish commands:
+The source is published at [BNorton2010/rewired](https://github.com/BNorton2010/rewired). The public browser preview is live at **[bnorton2010.github.io/rewired](https://bnorton2010.github.io/rewired/)**, served for free by GitHub Pages from the `gh-pages` branch. Open that link on a computer or in iPhone Safari; no installation or Expo account is required for visitors. Progress stays in that browser. This is a published snapshot; changes appear after another deployment rather than through the cloud development server's Fast Refresh. Build and publish commands:
 
 ```sh
 npm run build:pages
 node scripts/publish-pages.mjs
 ```
 
-Or run `npm run deploy:pages` to do both. Publishing requires authorized Git write access. Set GitHub repository Settings → Pages → Deploy from a branch → `gh-pages` → `/ (root)` and save. The expected site address is `https://bnorton2010.github.io/rewired/`; the address is only live after GitHub confirms a successful Pages deployment. Repository visibility and account plan must permit Pages. The publishing script does not change repository visibility.
+Or run `npm run deploy:pages` to do both. Publishing requires authorized Git write access. Pages is configured under repository Settings → Pages → Deploy from a branch → `gh-pages` → `/ (root)`. On a new repository, enable that setting once. Repository visibility and account plan must permit Pages. The publishing script does not change repository visibility. The existing repository was already public.
 
 `app.config.ts` supplies Expo's documented `/rewired` base URL only to the Pages build; local previews and native builds keep the normal root. The Pages build includes `.nojekyll`, a fallback, and entry files for each app route so audio assets, direct links, and reloads work. It publishes generated files using an isolated Git index without changing the source branch, creating a Git worktree, or forcing remote history. Future deployments retain the previous Pages commit as their parent.
 
-An Expo project ID is configured in `app.json`: `f824a207-b43d-4e95-9e57-f38e4a693d80`. The ID is public metadata. Validate access and link the project after signing into the correct Expo account:
+An Expo project ID is configured in `app.json`: `f824a207-b43d-4e95-9e57-f38e4a693d80`. The ID is public metadata. The supplied project is named **`beau`** in the **`paid-to-bring-peace`** Expo account, so EAS initialization aligned the local Expo slug and owner with that existing project. The app's displayed name remains **Re-Wired FM**. Validate access and the connection after signing into the correct Expo account:
 
 ```sh
 npx eas-cli@latest whoami
 npx eas-cli@latest init --id f824a207-b43d-4e95-9e57-f38e4a693d80 --non-interactive
 ```
+
+Expo token authentication, initialization, and `eas project:info` were verified against this exact project. No cloud native build, app-store submission, or EAS Hosting deployment has been started. The token is kept in cloud environment settings and is not part of the repository or the browser app.
 
 EAS Hosting is an alternative that supports a free account. Export a root-path web build with `npm run build:web` and publish it with `npx eas-cli@latest deploy`. Do not send `dist-pages` to EAS Hosting, since that build is specifically for GitHub's `/rewired` subpath. EAS requires Expo authentication and a chosen or existing hosting subdomain. In the cloud, supply `EXPO_TOKEN` securely in environment settings; never commit a token or paste it into chat. Configuring the project ID locally is not proof that remote initialization or deployment has succeeded.
 
@@ -152,13 +154,15 @@ npm run build:web
 npm run test:browser
 ```
 
-Playwright uses `/usr/bin/chromium` when available in this cloud machine. On another computer, run `npx playwright install chromium` first. `TEST_BASE_URL` can point the tests at another local port. Browser tests cover real time advancement, play/pause, seeking, skipping, speed changes, persistence across reloads, favorites, progress, filters, empty states, mobile layout, and reduced motion. `expo export --platform all --max-workers 2` additionally bundles iOS, Android, and web JavaScript; it is not a native binary build.
+Playwright uses `/usr/bin/chromium` when available in this cloud machine. On another computer, run `npx playwright install chromium` first. `TEST_BASE_URL` can point the tests at another local port or a hosted URL, including `http://localhost:8084/rewired/` for a Pages build. Browser tests cover real time advancement, play/pause, seeking, skipping, speed changes, persistence across reloads, favorites, progress, filters, empty states, mobile layout, and reduced motion. `expo export --platform all --max-workers 2` additionally bundles iOS, Android, and web JavaScript; it is not a native binary build.
 
 Native config introspection verifies the background mode, media service, and absence of microphone permissions. Actual iOS/Android binaries, hardware interruption behavior, OS background lifetimes, native assistive technologies, and lock-screen controls require the device checklist above. No remote deployment or GitHub upload is performed by these commands.
 
 Current cloud validation: a clean `npm ci` succeeded; TypeScript passed; all **7 content/state tests** and **3 browser tests** passed; web, iOS, and Android JavaScript bundles exported; native audio configuration assertions passed. Chromium inspection covered desktop and a 320-pixel mobile viewport, with no horizontal overflow. The mobile browser test simulated 1.4× text and reduced motion. The web server returned HTTP 200 and was left running for iteration. No physical-device or signed native-binary testing was performed. This session has no tool for opening a user-facing built-in browser panel; the preview was inspected with automated Chromium instead.
 
 The cloud Expo CLI may report an optional React Native DevTools launch failure because its desktop sandbox helper cannot run here. The Metro server and web preview still run; use browser developer tools for the preview and native developer tools on your local development machine.
+
+Public preview validation: GitHub's Pages build and deployment succeeded. All 3 browser tests passed against the Pages build served locally at its `/rewired` base path. Verified HTTPS downloads of all 54 served app and route files matched that tested build byte for byte; main direct routes returned HTTP 200, and a sample audio byte-range request returned HTTP 206 with the correct bytes. Cloud Chromium could not run tests against the HTTPS site because it does not trust the environment's proxy certificate. Automatic approval review rejected adding that certificate to the browser's persistent trust store; no certificate checks were disabled. Hosted browser interaction therefore remains a manual check or a test on a normally configured local computer.
 
 Official guidance consulted: [Expo Router installation](https://docs.expo.dev/router/installation/), [Expo Audio](https://docs.expo.dev/versions/latest/sdk/audio/), and [development builds](https://docs.expo.dev/develop/development-builds/introduction/), using their official `expo/expo` documentation source when this environment blocked the documentation site. Native versions were selected from SDK 57's bundled compatibility manifest and checked with `expo install --check`.
 

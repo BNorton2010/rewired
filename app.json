@@ -1,11 +1,13 @@
 {
   "expo": {
     "name": "Re-Wired FM",
-    "slug": "rewired-fm",
+    "slug": "beau",
     "version": "0.1.0",
     "scheme": "rewired",
     "extra": {
-      "eas": { "projectId": "f824a207-b43d-4e95-9e57-f38e4a693d80" }
+      "eas": {
+        "projectId": "f824a207-b43d-4e95-9e57-f38e4a693d80"
+      }
     },
     "userInterfaceStyle": "dark",
     "ios": {
@@ -36,6 +38,7 @@
       ],
       "expo-status-bar",
       "expo-asset"
-    ]
+    ],
+    "owner": "paid-to-bring-peace"
   }
 }

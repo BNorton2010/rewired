@@ -107,6 +107,8 @@ test('transparent full-width waveform idles, amplifies for playback and respects
   const opacity = () => page.getByTestId('waveform-intensity').evaluate(node => Number(getComputedStyle(node).opacity));
   await expect.poll(opacity).toBeGreaterThan(.29);
   const playing = await transform(); await expect.poll(transform).not.toBe(playing);
+  const gradientIds = await page.locator('linearGradient[id^="wave-"]').evaluateAll(nodes => nodes.map(node => node.id));
+  expect(new Set(gradientIds).size).toBe(gradientIds.length);
   const bounds = await page.getByTestId('playback-visualizer').boundingBox();
   expect(bounds?.x).toBe(0); expect(bounds?.width).toBe(page.viewportSize()!.width);
   expect(await page.getByTestId('playback-visualizer').evaluate(node => getComputedStyle(node).backgroundColor)).toBe('rgba(0, 0, 0, 0)');

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, AppState, Easing, Platform, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Path } from 'react-native-svg';
 import { colors } from './theme';
@@ -14,6 +14,7 @@ function wave(offset: number) {
 }
 const paths = [wave(0), wave(1.4), wave(2.8)];
 export function PlaybackVisualizer({ playing, compact = false }: { playing: boolean; compact?: boolean }) {
+  const id = useId().replace(/[^a-zA-Z0-9]/g, '');
   const phase = useRef(new Animated.Value(0)).current;
   const intensity = useRef(new Animated.Value(playing ? 1 : .28)).current;
   const [reduceMotion, setReduceMotion] = useState(true);
@@ -41,9 +42,9 @@ export function PlaybackVisualizer({ playing, compact = false }: { playing: bool
         { scaleY: phase.interpolate({ inputRange: [0, .25, .5, .75, 1], outputRange: [1, 1.2 + i * .1, 1, .75 - i * .05, 1] }) },
       ] }}>
         <Svg width="100%" height="100%" viewBox="0 0 1200 200" preserveAspectRatio="none">
-          <Defs><LinearGradient id={`wave-${i}`} x1="0" x2="1" y1="0" y2="0"><Stop offset="0" stopColor={colors.teal} stopOpacity="0" /><Stop offset=".25" stopColor={colors.teal} /><Stop offset=".65" stopColor={colors.gold} /><Stop offset="1" stopColor={colors.gold} stopOpacity="0" /></LinearGradient></Defs>
-          {!compact && <Path d={d} stroke={`url(#wave-${i})`} strokeWidth="12" opacity=".08" fill="none" />}
-          <Path d={d} stroke={`url(#wave-${i})`} strokeWidth={compact ? 6 : i ? 1.5 : 2.2} fill="none" />
+          <Defs><LinearGradient id={`wave-${id}-${i}`} x1="0%" x2="100%" y1="0%" y2="0%"><Stop offset="0" stopColor={colors.teal} stopOpacity="0" /><Stop offset=".25" stopColor={colors.teal} /><Stop offset=".65" stopColor={colors.gold} /><Stop offset="1" stopColor={colors.gold} stopOpacity="0" /></LinearGradient></Defs>
+          {!compact && <Path d={d} stroke={`url(#wave-${id}-${i})`} strokeWidth="12" opacity=".08" fill="none" />}
+          <Path d={d} stroke={`url(#wave-${id}-${i})`} strokeWidth={compact ? 6 : i ? 1.5 : 2.2} fill="none" />
         </Svg>
       </Animated.View>)}
     </Animated.View>

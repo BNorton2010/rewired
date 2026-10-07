@@ -4,10 +4,14 @@ import { readFile } from 'node:fs/promises';
 
 // Run on Expo's worker when this workspace cannot reach its asset CDN.
 // Uses public update files, requires no account token, and preserves TLS checks.
-const updates = JSON.parse(process.env.REWIRED_PREVIEW_UPDATES_JSON || '[]');
-const update = updates.find((item) => item.platform === 'ios');
-assert(update, 'The publish job did not return an iOS update.');
 const config = JSON.parse(await readFile(new URL('../app.json', import.meta.url), 'utf8')).expo;
+const updates = JSON.parse(process.env.REWIRED_PREVIEW_UPDATES_JSON || '[]');
+const id = process.env.REWIRED_PREVIEW_UPDATE_ID;
+const update = updates.find((item) => item.platform === 'ios') || (id && {
+  id, platform: 'ios', runtimeVersion: config.version,
+  manifestPermalink: `https://u.expo.dev/update/${id}`,
+});
+assert(update, 'Provide a published iOS update ID or the publish job output.');
 const url = new URL(update.manifestPermalink);
 assert.equal(url.origin, 'https://u.expo.dev');
 assert.equal(url.pathname, `/update/${update.id}`);
@@ -49,8 +53,19 @@ for (let offset = 0; offset < assets.length; offset += 4) {
   await Promise.all(assets.slice(offset, offset + 4).map(async (asset) => {
     const assetUrl = new URL(asset.url);
     assert.equal(assetUrl.origin, 'https://assets.eascdn.net');
-    const downloaded = await fetch(assetUrl, { signal: AbortSignal.timeout(30_000) });
-    assert.equal(downloaded.status, 200, 'A published asset could not be downloaded.');
+    const downloaded = await fetch(assetUrl, {
+      signal: AbortSignal.timeout(30_000),
+      headers: {
+        'Expo-Platform': 'ios',
+        'Expo-Protocol-Version': '1',
+        'Expo-Updates-Environment': 'BARE',
+        'Expo-Runtime-Version': update.runtimeVersion,
+      },
+    });
+    if (downloaded.status !== 200) {
+      const reason = (await downloaded.text()).slice(0, 500);
+      throw new Error(`Published ${asset.contentType} asset returned ${downloaded.status}: ${reason}`);
+    }
     const data = Buffer.from(await downloaded.arrayBuffer());
     assert(data.length > 0);
     assert.equal(createHash('sha256').update(data).digest('base64url'), asset.hash,

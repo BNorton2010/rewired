@@ -1,0 +1,22 @@
+name: Check an existing Re-Wired FM phone preview
+
+on:
+  workflow_dispatch:
+    inputs:
+      update_id:
+        type: string
+        required: true
+
+defaults:
+  tools:
+    node: '24'
+
+jobs:
+  verify_ios_preview:
+    name: Download published iOS bundle and samples
+    environment: preview
+    env:
+      REWIRED_PREVIEW_UPDATE_ID: ${{ inputs.update_id }}
+    steps:
+      - uses: eas/checkout
+      - run: node scripts/verify-expo-preview.mjs

@@ -55,16 +55,29 @@ EAS Hosting is an alternative that supports a free account. Export a root-path w
 
 ## Test on your iPhone
 
+### Attempt an Expo Go preview from this cloud workspace
+
+This is the option for someone using only an iPhone. Install Expo Go and sign in with your personal Expo account. In that account's [access-token settings](https://expo.dev/settings/access-tokens), create a personal access token associated with your login, rather than an automated robot account. Enter it securely as **`EXPO_GO_TOKEN`** in cloud environment settings; retain the existing **`EXPO_TOKEN`** for EAS build tools. Do not paste tokens in chat or commit them. Physical iPhone Expo Go checks that its signed-in account matches the development server's account, and Expo's standard tunnel rejects robot accounts.
+
+The prepared launcher uses the personal credential only for this process and keeps the regular web server on port 8081:
+
+```sh
+npm run phone:cloud
+```
+
+If Expo reports **Tunnel ready**, verify the public tunnel's iOS manifest and bundle before sharing its Expo Go link or QR. Keep the terminal running. On the iPhone, open the verified Expo Go link, or scan its QR code from another screen. Tunnel access and physical-device playback are not yet verified. The initial attempt stopped with **Cannot use ngrok with a robot user**; the personal credential is the next prerequisite. Creating a token alone does not establish a working tunnel or make this app appear automatically in Expo Go.
+
 ### Fast UI and foreground-audio check with Expo Go
 
-Copy or download this project onto a computer on the same Wi-Fi as your iPhone. Install Expo Go from the App Store; its current version must support **SDK 57**. In the local project folder:
+Copy or download this project onto a computer on the same Wi-Fi as your iPhone. Install Node 24 LTS on the computer and Expo Go from the App Store on the iPhone; Expo Go's current version must support **SDK 57**. Sign in to Expo Go using your normal Expo account. In the local project folder:
 
 ```sh
 npm ci
+npx expo login
 npx expo start --go --host lan
 ```
 
-Scan the QR code with the iPhone Camera app and open it in Expo Go. Test onboarding, the library, foreground audio controls, and saved data. `--go` is explicit because this project also includes `expo-dev-client`. The cloud machine's private LAN QR address generally will not be reachable from your iPhone. Use the local-computer instructions above instead of scanning that cloud address. Web preview in iPhone Safari is useful for responsive layout, but is not a native-app test.
+For `expo login`, use the same Expo account as on the iPhone. [Expo requires matching sign-ins for physical iOS devices](https://docs.expo.dev/troubleshooting/expo-go-sign-in-required/). The cloud's automated Expo account is intended for EAS build tools; use your own normal account for local Expo Go testing. Keep the terminal open, scan its QR code with the iPhone Camera app, and tap the banner to open it in Expo Go. Test onboarding, the library, foreground audio controls, and saved data. `--go` is explicit because this project also includes `expo-dev-client`. The cloud machine's private LAN QR address generally will not be reachable from your iPhone. Use the local-computer instructions above instead of scanning that cloud address. If same-Wi-Fi connection fails, try `npx expo start --go --tunnel` on that computer and scan the new QR code; Expo may prompt to install its tunnel helper. Web preview in iPhone Safari is useful for responsive layout, but is not a native-app test. The GitHub Pages URL opens the browser version and is not an Expo Go QR code.
 
 ### Native background audio and lock-screen controls
 

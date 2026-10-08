@@ -1,29 +1,29 @@
 {
   "projectId": "f824a207-b43d-4e95-9e57-f38e4a693d80",
-  "updateId": "01a114dc-eaff-70a9-974d-8a59b7c0726e",
-  "groupId": "c0d267c4-44c4-4f1d-82ed-b5fc1154e1cb",
+  "updateId": "01a11957-b21a-7523-b13b-7151f6ee80bd",
+  "groupId": "7a017548-4167-4897-8527-7aa72fcf8712",
   "expoGoUrl": "exps://u.expo.dev/f824a207-b43d-4e95-9e57-f38e4a693d80?channel-name=rewired-go-preview&runtime-version=0.1.0&platform=ios",
   "platform": "ios",
   "sdkVersion": "57.0.0",
-  "nativeSourceCommit": "4682b71a3f92d018a7f9a9af1fbfc0b3c7fe925d",
+  "nativeSourceCommit": "87b907662cdcb82dadd9c7562a58617dc97816d5",
   "signInAccount": "bnorton2010",
   "content": "Illustrative local demo with original CC0 instrumental samples",
   "physicalDeviceTested": false,
   "downloadVerification": {
-    "workflowRunId": "01a114db-8911-7305-8d75-861646bcb1a1",
+    "workflowRunId": "01a11956-4160-7b79-bf20-91ca29fc8f2d",
     "status": "SUCCESS",
-    "verifiedAssets": 53,
+    "verifiedAssets": 38,
     "verifiedAudioSamples": 3,
-    "verifiedBytes": 23071249
+    "verifiedBytes": 12724798
   },
-  "snapshotExpoGoUrl": "exps://u.expo.dev/update/01a114dc-eaff-70a9-974d-8a59b7c0726e",
+  "snapshotExpoGoUrl": "exps://u.expo.dev/update/01a11957-b21a-7523-b13b-7151f6ee80bd",
   "channel": "rewired-go-preview",
   "linkMode": "latest-compatible-update",
   "stableLinkVerification": {
-    "resolvedUpdateId": "01a114dc-eaff-70a9-974d-8a59b7c0726e",
+    "resolvedUpdateId": "01a11957-b21a-7523-b13b-7151f6ee80bd",
     "serverVerified": true,
     "authenticatedDeviceTested": false,
-    "workflowRunId": "01a114db-8911-7305-8d75-861646bcb1a1",
+    "workflowRunId": "01a11956-4160-7b79-bf20-91ca29fc8f2d",
     "status": "SUCCESS"
   },
   "webPreviewRevision": "polish-5",
@@ -31,5 +31,6 @@
     "workflowRunId": "01a116e6-daf2-7b50-ad91-c782f084dfe7",
     "status": "FAILURE",
     "reason": "Expo server failed to fetch project sources before publication"
-  }
+  },
+  "previewRevision": "polish-5"
 }

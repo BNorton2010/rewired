@@ -7,3 +7,7 @@ export type AudioContextValue = {
   /** Optional native-only, sanitized local troubleshooting report. */
   getPlaybackReport?: () => string;
 };
+// A ticking playhead should redraw its seek/progress UI, not the artwork,
+// library rows or transport buttons that only need playback state.
+export type AudioControlsValue = Omit<AudioContextValue, 'position' | 'duration'>;
+export type AudioProgressValue = Pick<AudioContextValue, 'position' | 'duration'>;

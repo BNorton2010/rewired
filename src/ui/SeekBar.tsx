@@ -60,7 +60,14 @@ export function SeekBar({ position, duration, onSeek, disabled }: Props) {
     if (!unavailable) transition({ type: 'start', value: seconds, duration });
   };
   const move = (seconds: number) => {
-    if (!unavailable) transition({ type: 'move', value: seconds, duration });
+    if (unavailable) return;
+    if (Platform.OS === 'web') transition({ type: 'move', value: seconds, duration });
+    else {
+      // UISlider / SeekBar already animates the thumb on the native UI thread.
+      // Retain the latest gesture value without scheduling a React render for
+      // every finger movement; begin, commit and cancellation still publish.
+      interactionRef.current = seekInteraction(interactionRef.current, { type: 'move', value: seconds, duration });
+    }
   };
   const spokenValue = `${formatTime(value)} of ${formatTime(duration)}`;
 

@@ -31,12 +31,15 @@ export function auroraRibbon(phase: number, layer: number, energy: number) {
     const lower = side === 1;
     const start = lower ? 1300 : -100;
     const direction = lower ? -1 : 1;
-    if (lower) path += ` L1300,${auroraPoint(1300, phase, layer, energy, true).y.toFixed(2)}`;
+    let a = lower ? auroraPoint(start, phase, layer, energy, true) : first;
+    if (lower) path += ` L1300,${a.y.toFixed(2)}`;
     for (let i = 0; i < 14; i++) {
-      const a = auroraPoint(start + direction * i * step, phase, layer, energy, lower);
       const b = auroraPoint(a.x + direction * step, phase, layer, energy, lower);
       const control = (b.x - a.x) / 3;
       path += ` C${(a.x + control).toFixed(1)},${(a.y + a.derivative * control).toFixed(2)} ${(b.x - control).toFixed(1)},${(b.y - b.derivative * control).toFixed(2)} ${b.x},${b.y.toFixed(2)}`;
+      // Adjacent segments share an endpoint. Reuse its trigonometry rather
+      // than recomputing it for every frame of every ribbon.
+      a = b;
     }
   }
   return path + ' Z';

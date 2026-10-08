@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, Share, Text, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAudio } from '../src/audio/AudioProvider';
+import { useAudio, useAudioProgress } from '../src/audio/AudioProvider';
 import { useStore } from '../src/persistence/Store';
 import { recommend, formatTime } from '../src/content/logic';
 import { topicFor } from '../src/content/catalog';
@@ -13,6 +13,21 @@ import { TransportControls, PlayerToolbar } from '../src/ui/PlayerControls';
 import { SeekBar } from '../src/ui/SeekBar';
 import { colors, fonts } from '../src/ui/theme';
 import { previewRevision } from '../src/preview';
+
+// Only the seek bar and timestamps subscribe to the advancing playhead. The
+// scroll page, artwork, aurora and controls keep their existing React trees.
+const PlayerProgress = React.memo(function PlayerProgress({ onSeek, disabled, minutes }: {
+  onSeek: (seconds: number) => void; disabled: boolean; minutes: number;
+}) {
+  const { position, duration } = useAudioProgress();
+  return <View style={{ marginTop: 0 }}>
+    <SeekBar position={position} duration={duration} onSeek={onSeek} disabled={disabled} />
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+      <Text testID="audio-position" style={{ color: colors.muted, fontFamily: fonts.body, fontVariant: ['tabular-nums'], fontSize: 11 }}>{formatTime(position)}</Text>
+      <Text style={{ color: colors.muted, fontFamily: fonts.body, fontVariant: ['tabular-nums'], fontSize: 11 }}>{duration ? formatTime(duration) : `${minutes}:00`}</Text>
+    </View>
+  </View>;
+});
 
 export default function PlayerScreen() {
   const audio = useAudio();
@@ -44,13 +59,7 @@ export default function PlayerScreen() {
               <Heading style={{ fontSize: wide ? 45 : 39, lineHeight: wide ? 47 : 41, textAlign: 'center', letterSpacing: -.7, maxWidth: wide ? 430 : 280 }}>{lesson.title}</Heading>
               <Body style={{ fontSize: 13, lineHeight: 20, textAlign: 'center', color: '#D2C8DB' }}>Ambient sample + reflective text</Body>
             </View>
-            <View style={{ marginTop: 0 }}>
-              <SeekBar position={audio.position} duration={audio.duration} onSeek={audio.seek} disabled={!audio.lesson || audio.loading} />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <Text testID="audio-position" style={{ color: colors.muted, fontFamily: fonts.body, fontVariant: ['tabular-nums'], fontSize: 11 }}>{formatTime(audio.position)}</Text>
-                <Text style={{ color: colors.muted, fontFamily: fonts.body, fontVariant: ['tabular-nums'], fontSize: 11 }}>{audio.duration ? formatTime(audio.duration) : `${lesson.minutes}:00`}</Text>
-              </View>
-            </View>
+            <PlayerProgress onSeek={audio.seek} disabled={!audio.lesson || audio.loading} minutes={lesson.minutes} />
             <TransportControls playing={audio.playing} starting={audio.starting} loading={audio.loading} canSkip={!!audio.lesson && !audio.loading} onSkip={audio.skip} onToggle={() => audio.error ? audio.retry() : audio.lesson ? audio.toggle() : audio.playLesson(lesson)} />
             <PlayerToolbar speed={audio.speed} onSpeed={audio.changeSpeed} showText={showText} onText={() => setShowText(v => !v)} saved={saved} onSave={() => store.favorite(lesson.id)} />
             {audio.error && <View accessibilityRole="alert" style={[styles.card, { padding: 17, gap: 14 }]}><Body style={{ color: colors.gold }}>{audio.error}</Body><Button title="Retry audio" onPress={audio.retry} secondary /></View>}

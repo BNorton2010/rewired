@@ -1,14 +1,14 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Asset } from 'expo-asset';
 import { getLesson, type Lesson } from '../content/catalog';
 import { clampPosition } from '../content/logic';
 import { useStore } from '../persistence/Store';
 import { audioSources } from './sources';
-import type { AudioContextValue } from './types';
+import { AudioStateProvider } from './contexts';
 
 // Web has a separate transport: browser play promises, autoplay rules, and tab lifetimes
 // differ from the native audio session. Expo selects this module on web automatically.
-const Context = createContext<AudioContextValue | null>(null);
+export { useAudio, useAudioProgress } from './contexts';
 export function AudioProvider({ children }: React.PropsWithChildren) {
   const store = useStore();
   const storeRef = useRef(store); storeRef.current = store;
@@ -42,8 +42,10 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
       setPosition(media.currentTime);
     };
     media.oncanplay = clearLoading;
-    media.onplaying = () => { setPlaying(true); setStarting(false); setError(null); clearLoading(); };
-    media.onpause = () => { setStarting(false); setPlaying(false); persist(); };
+    // Media events are queued. A fast subsequent tap may already have changed
+    // the element's transport by the time an older event reaches JavaScript.
+    media.onplaying = () => { if (media.paused) return; setPlaying(true); setStarting(false); setError(null); clearLoading(); };
+    media.onpause = () => { if (!media.paused) return; setStarting(false); setPlaying(false); persist(); };
     media.onwaiting = () => setLoading(true);
     media.onseeked = () => { setPosition(media.currentTime); persist(); };
     media.ontimeupdate = () => {
@@ -86,7 +88,7 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
     playRequest.current++; setStarting(false); persist(); media.pause();
     selected.current = item; setLesson(item); setError(null); setLoading(true); setPlaying(false);
     completed.current = false;
-    const saved = storeRef.current.state.positions[item.id] ?? 0;
+    const saved = storeRef.current.getPosition(item.id);
     pendingSeek.current = saved; setPosition(saved); setDuration(0);
     setFinished(!autoplay && saved === 0 && storeRef.current.state.completedLessons.includes(item.id));
     media.src = Asset.fromModule(audioSources[item.minutes]).uri;
@@ -115,7 +117,7 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
     const media = mediaRef.current;
     if (!media || !selected.current) return;
     if (error) { load(selected.current, true); return; }
-    if (!media.paused || starting) { playRequest.current++; setStarting(false); media.pause(); persist(); }
+    if (!media.paused || starting) { playRequest.current++; setStarting(false); setPlaying(false); media.pause(); persist(); }
     else { if (media.ended || completed.current) seek(0); setFinished(false); start(); }
   }, [error, starting, load, persist, seek, start]);
   const playLesson = useCallback((item: Lesson) => {
@@ -128,10 +130,10 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
     if (mediaRef.current) mediaRef.current.playbackRate = speed;
     storeRef.current.setSpeed(speed);
   }, []);
-  return <Context.Provider value={{ lesson, playing, starting, loading, position, duration, error, finished, speed: store.state.speed, playLesson, toggle, seek, skip: seconds => seek((mediaRef.current?.currentTime ?? 0) + seconds), changeSpeed, retry: () => { if (selected.current) load(selected.current, true); } }}>{children}</Context.Provider>;
-}
-export function useAudio() {
-  const audio = useContext(Context);
-  if (!audio) throw new Error('AudioProvider is missing');
-  return audio;
+  const skip = useCallback((seconds: number) => seek((mediaRef.current?.currentTime ?? 0) + seconds), [seek]);
+  const retry = useCallback(() => { if (selected.current) load(selected.current, true); }, [load]);
+  const controls = useMemo(() => ({ lesson, playing, starting, loading, error, finished, speed: store.state.speed, playLesson, toggle, seek, skip, changeSpeed, retry }),
+    [lesson, playing, starting, loading, error, finished, store.state.speed, playLesson, toggle, seek, skip, changeSpeed, retry]);
+  const progress = useMemo(() => ({ position, duration }), [position, duration]);
+  return <AudioStateProvider controls={controls} progress={progress}>{children}</AudioStateProvider>;
 }

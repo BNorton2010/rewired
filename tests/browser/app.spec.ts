@@ -110,8 +110,8 @@ test('gold aurora changes shape, stays behind controls, idles and respects reduc
   const paths = visualizer.locator('path[id*="-ribbon-"]');
   const shape = () => paths.first().getAttribute('d');
   const opacity = () => page.getByTestId('waveform-intensity').evaluate(node => Number(getComputedStyle(node).opacity));
-  await expect.poll(opacity).toBeGreaterThan(.76);
-  expect(await opacity()).toBeLessThanOrEqual(.79);
+  await expect.poll(opacity).toBeGreaterThan(.80);
+  expect(await opacity()).toBeLessThanOrEqual(.83);
   expect(await paths.count()).toBe(4);
   // Avoid the native per-frame bitmap/filter pipeline that made touches lag.
   expect(await visualizer.locator('filter, mask, [filter], [mask]').count()).toBe(0);
@@ -142,21 +142,26 @@ test('gold aurora changes shape, stays behind controls, idles and respects reduc
   expect(new Set(gradientIds).size).toBe(gradientIds.length);
 
   await page.getByTestId('player-toggle').click();
-  await expect.poll(opacity).toBeLessThan(.45);
-  expect(await opacity()).toBeGreaterThan(.41);
+  await expect.poll(opacity).toBeLessThan(.55);
+  expect(await opacity()).toBeGreaterThan(.51);
   const idle = await shape(); await expect.poll(shape).not.toBe(idle);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.waitForTimeout(200);
   const frozenIdle = await shape();
   await page.waitForTimeout(400); expect(await shape()).toBe(frozenIdle);
   await page.getByTestId('player-toggle').click();
-  await expect.poll(opacity).toBeGreaterThan(.76);
+  await expect.poll(opacity).toBeGreaterThan(.80);
   await page.waitForTimeout(200);
   const frozenPlaying = await shape();
   await page.waitForTimeout(400); expect(await shape()).toBe(frozenPlaying);
   await page.screenshot({ path: 'test-results/player-gold-aurora.png', fullPage: true });
   await page.getByRole('button', { name: 'Playback information', exact: true }).click();
-  await expect(page.getByTestId('preview-revision')).toContainText('gold-flow-4');
+  await expect(page.getByTestId('preview-revision')).toContainText('polish-5');
+  // Broad desktop ribbons stay quieter; resizing retains the same evolving
+  // path rather than using a different image or renderer.
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect.poll(opacity).toBeLessThan(.65);
+  expect(await opacity()).toBeGreaterThan(.62);
   expect(errors).toEqual([]);
 });
 
@@ -190,6 +195,14 @@ test('bundled typography and artwork, player controls and large-text layouts rem
     const images = nodes.flatMap(node => Array.from(node.querySelectorAll('img')));
     return nodes.length > 0 && images.length >= nodes.length && images.every(img => img.complete && img.naturalWidth > 0 && new URL(img.src).origin === location.origin);
   })).toBe(true);
+  const artwork = await page.getByTestId('celestial-artwork').evaluateAll(nodes => nodes.map(node => {
+    const image = node.querySelector('img')!;
+    return { width: image.naturalWidth, height: image.naturalHeight, frame: Math.max(node.getBoundingClientRect().width, node.getBoundingClientRect().height), source: image.src };
+  }));
+  expect(artwork.every(image => image.width <= 1280 && image.height <= 1280 && /\.jpg(?:\?|$)/.test(image.source))).toBe(true);
+  const thumbnails = artwork.filter(image => image.frame <= 96);
+  expect(thumbnails.length).toBeGreaterThan(0);
+  expect(thumbnails.every(image => image.width === 288 && image.height === 288)).toBe(true);
 
   const enlargeText = () => page.evaluate(() => document.querySelectorAll('[dir="auto"]').forEach(node => {
     if (!(node instanceof HTMLElement) || node.dataset.enlarged) return;

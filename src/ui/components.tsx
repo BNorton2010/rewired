@@ -1,6 +1,6 @@
 import React, { type ComponentProps } from 'react';
 import { Pressable, Text, View, ScrollView, StyleSheet, useWindowDimensions, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import Feather from '@expo/vector-icons/Feather';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import { colors, fonts } from './theme';

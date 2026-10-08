@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { Asset } from 'expo-asset';
 import Constants from 'expo-constants';
@@ -11,9 +11,9 @@ import { prepareNativePlayback } from './nativePreparation';
 import { createNativePlaybackSession, nativePlaybackMode, startNativePlayback } from './nativeSession';
 import { createNativeSeekQueue, shouldHandleNativeCompletion } from './nativeSeek';
 import { createPlaybackDiagnostics, type PlaybackDiagnosticEvent } from './nativeDiagnostics';
-import type { AudioContextValue } from './types';
+import { AudioStateProvider } from './contexts';
 import { previewRevision } from '../preview';
-const Context = createContext<AudioContextValue | null>(null);
+export { useAudio, useAudioProgress } from './contexts';
 export function AudioProvider({ children }: React.PropsWithChildren) {
   const store = useStore();
   const storeRef = useRef(store); storeRef.current = store;
@@ -139,7 +139,7 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
         if (!controller.signal.aborted) record('source-cached');
         return { uri: asset.localUri };
       },
-      position: storeRef.current.state.positions[item.id] ?? 0,
+      position: storeRef.current.getPosition(item.id),
       speed: () => storeRef.current.state.speed,
       signal: controller.signal,
     }).then(async () => {
@@ -254,10 +254,15 @@ export function AudioProvider({ children }: React.PropsWithChildren) {
     const speed = speeds[(speeds.indexOf(storeRef.current.state.speed) + 1) % speeds.length];
     try { if (prepared.current) player.setPlaybackRate(speed); storeRef.current.setSpeed(speed); } catch { setError('Playback speed could not be changed on this device.'); }
   }, [player]);
-  return <Context.Provider value={{ lesson, playing: prepared.current && playing, starting, loading: loading || (prepared.current && (playing || starting) && status.isBuffering), position: prepared.current ? (seekPosition ?? player.currentTime) : 0, duration: prepared.current ? player.duration : 0, error, finished, speed: store.state.speed, playLesson, toggle, seek, skip: seconds => seek((pendingSeekPosition.current ?? player.currentTime) + seconds), changeSpeed, retry: () => { if (selected.current) load(selected.current, true); }, getPlaybackReport: () => diagnostics.current!.report(diagnosticSnapshot()) }}>{children}</Context.Provider>;
-}
-export function useAudio() {
-  const audio = useContext(Context);
-  if (!audio) throw new Error('AudioProvider is missing');
-  return audio;
+  const skip = useCallback((seconds: number) => seek((pendingSeekPosition.current ?? player.currentTime) + seconds), [player, seek]);
+  const retry = useCallback(() => { if (selected.current) load(selected.current, true); }, [load]);
+  const getPlaybackReport = useCallback(() => diagnostics.current!.report(diagnosticSnapshot()), [diagnosticSnapshot]);
+  const isPlaying = prepared.current && playing;
+  const isLoading = loading || (prepared.current && (playing || starting) && status.isBuffering);
+  const controls = useMemo(() => ({ lesson, playing: isPlaying, starting, loading: isLoading, error, finished, speed: store.state.speed, playLesson, toggle, seek, skip, changeSpeed, retry, getPlaybackReport }),
+    [lesson, isPlaying, starting, isLoading, error, finished, store.state.speed, playLesson, toggle, seek, skip, changeSpeed, retry, getPlaybackReport]);
+  const position = prepared.current ? (seekPosition ?? player.currentTime) : 0;
+  const duration = prepared.current ? player.duration : 0;
+  const progress = useMemo(() => ({ position, duration }), [position, duration]);
+  return <AudioStateProvider controls={controls} progress={progress}>{children}</AudioStateProvider>;
 }

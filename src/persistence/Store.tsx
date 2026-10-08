@@ -1,17 +1,19 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createJourney, type Preferences } from '../content/logic';
 import { decodeState, newState, type LocalState } from './state';
 const KEY = 'rewired-fm.local-demo.v1';
 type Store = {
-  state: LocalState; ready: boolean; storageError: string | null;
+  state: Omit<LocalState, 'positions'>; ready: boolean; storageError: string | null;
   savePreferences: (preferences: Preferences) => void; favorite: (id: string) => void;
   complete: (id: string) => void; markDay: (day: number) => void;
   setPosition: (id: string, seconds: number) => void; setLastLesson: (id: string) => void; setSpeed: (speed: number) => void;
+  getPosition: (id: string) => number;
 };
 const Context = createContext<Store | null>(null);
 export function StoreProvider({ children }: React.PropsWithChildren) {
   const [state, setState] = useState(newState);
+  const stateRef = useRef(state); stateRef.current = state;
   const [ready, setReady] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
   const writable = useRef(false);
@@ -38,10 +40,19 @@ export function StoreProvider({ children }: React.PropsWithChildren) {
     return { ...s, completedLessons: [...new Set([...s.completedLessons, id])], completedDays: nextDay >= 0 && s.journey[nextDay] === id ? [...s.completedDays, nextDay] : s.completedDays, positions: { ...s.positions, [id]: 0 } };
   }), []);
   const markDay = useCallback((day: number) => setState(s => ({ ...s, completedDays: [...new Set([...s.completedDays, day])], completedLessons: [...new Set([...s.completedLessons, s.journey[day]])] })), []);
-  const setPosition = useCallback((id: string, seconds: number) => setState(s => ({ ...s, positions: { ...s.positions, [id]: seconds } })), []);
-  const setLastLesson = useCallback((id: string) => setState(s => ({ ...s, lastLesson: id })), []);
-  const setSpeed = useCallback((speed: number) => setState(s => ({ ...s, speed })), []);
-  return <Context.Provider value={{ state, ready, storageError, savePreferences, favorite, complete, markDay, setPosition, setLastLesson, setSpeed }}>{children}</Context.Provider>;
+  const setPosition = useCallback((id: string, seconds: number) => setState(s => s.positions[id] === seconds ? s : ({ ...s, positions: { ...s.positions, [id]: seconds } })), []);
+  const getPosition = useCallback((id: string) => stateRef.current.positions[id] ?? 0, []);
+  const setLastLesson = useCallback((id: string) => setState(s => s.lastLesson === id ? s : ({ ...s, lastLesson: id })), []);
+  const setSpeed = useCallback((speed: number) => setState(s => s.speed === speed ? s : ({ ...s, speed })), []);
+  // Persist the complete state, but keep periodic position saves out of the
+  // context read by screens and navigation. Transports read positions on load.
+  const screenState = useMemo(() => {
+    const { positions: _, ...visible } = state;
+    return visible;
+  }, [state.preferences, state.onboarded, state.journey, state.favorites, state.completedDays, state.completedLessons, state.lastLesson, state.speed]);
+  const value = useMemo(() => ({ state: screenState, ready, storageError, savePreferences, favorite, complete, markDay, setPosition, getPosition, setLastLesson, setSpeed }),
+    [screenState, ready, storageError, savePreferences, favorite, complete, markDay, setPosition, getPosition, setLastLesson, setSpeed]);
+  return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 export function useStore() {
   const store = useContext(Context);
